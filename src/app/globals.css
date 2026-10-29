@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+:root {
+  --background: #faf7f2;
+  --foreground: #2a2520;
+  --card: #ffffff;
+  --muted: #8b8177;
+  --line: #e9e1d4;
+  --accent: #c05f3c;
+  --accent-deep: #a34e2f;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-deep: var(--accent-deep);
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "PingFang SC",
+    "Microsoft YaHei", "Noto Sans SC", sans-serif;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+}

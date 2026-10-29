@@ -66,7 +66,7 @@ export function validateGarment(g: GarmentSize): FieldError[] {
   return errors;
 }
 
-/** 图片文件校验（格式 / 大小） */
+/** 图片文件校验（格式 / 大小）。人像不强制全身（PRD v1.2），清晰度 M2 换视觉模型判断 */
 export function validatePhotoFile(file: File): string | null {
   if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
     return "只支持 JPG / PNG / WebP 格式";
@@ -75,9 +75,4 @@ export function validatePhotoFile(file: File): string | null {
     return "图片超过 8MB，请压缩后再传";
   }
   return null;
-}
-
-/** 全身照应是竖构图（M1 简易判断，M2 换成视觉模型） */
-export function isPortraitRatio(width: number, height: number): boolean {
-  return height / width >= 1.15;
 }

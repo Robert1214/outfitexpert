@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "试穿助手 · 下单前先试试",
-  description: "上传全身照和衣服图，生成试穿效果图与合身判断",
+  description: "上传人像照和衣服图，生成试穿效果图与合身判断",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

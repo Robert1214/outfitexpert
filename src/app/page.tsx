@@ -14,7 +14,6 @@ export default function HomePage() {
   const router = useRouter();
   const [personImage, setPersonImage] = useState<string | null>(null);
   const [garmentImage, setGarmentImage] = useState<string | null>(null);
-  const [personConfirmed, setPersonConfirmed] = useState(false);
   const [body, setBody] = useState<Record<string, string>>({
     height: "",
     weight: "",
@@ -50,15 +49,11 @@ export default function HomePage() {
     e.preventDefault();
     setSubmitError(null);
     if (!personImage) {
-      setSubmitError("请先上传你的全身照");
+      setSubmitError("请先上传你的人像照");
       return;
     }
     if (!garmentImage) {
       setSubmitError("请上传衣服图");
-      return;
-    }
-    if (!personConfirmed) {
-      setSubmitError("请勾选确认上传的是清晰全身照");
       return;
     }
 
@@ -113,13 +108,7 @@ export default function HomePage() {
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
         <SectionCard title="上传照片">
           <div className="flex flex-col gap-5">
-            <UploadBox
-              kind="person"
-              value={personImage}
-              onChange={setPersonImage}
-              confirmed={personConfirmed}
-              onConfirmed={setPersonConfirmed}
-            />
+            <UploadBox kind="person" value={personImage} onChange={setPersonImage} />
             <UploadBox kind="garment" value={garmentImage} onChange={setGarmentImage} />
           </div>
         </SectionCard>

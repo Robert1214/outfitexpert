@@ -1,16 +1,13 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { fileToDataUrl } from "@/lib/storage";
-import { isPortraitRatio, validatePhotoFile } from "@/lib/validation";
+import { validatePhotoFile } from "@/lib/validation";
 
 interface Props {
   kind: "person" | "garment";
   value: string | null;
   onChange: (v: string | null) => void;
-  /** 全身照确认勾选（仅 person 需要） */
-  confirmed?: boolean;
-  onConfirmed?: (b: boolean) => void;
 }
 
 async function imageSize(src: string): Promise<{ width: number; height: number } | null> {
@@ -22,14 +19,23 @@ async function imageSize(src: string): Promise<{ width: number; height: number }
   });
 }
 
-export default function UploadBox({ kind, value, onChange, confirmed = false, onConfirmed }: Props) {
+export default function UploadBox({ kind, value, onChange }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
-  const [ratioWarning, setRatioWarning] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  // 配饰提醒气泡：桌面悬停靠 CSS，手机点击靠这个开关
+  const [showTip, setShowTip] = useState(false);
 
   const isPerson = kind === "person";
+
+  // 点开气泡后，点页面其他位置自动收起（手机体验）
+  useEffect(() => {
+    if (!showTip) return;
+    const close = () => setShowTip(false);
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, [showTip]);
 
   async function handleFile(file?: File | null) {
     if (!file || busy) return;
@@ -39,15 +45,14 @@ export default function UploadBox({ kind, value, onChange, confirmed = false, on
       return;
     }
     setError(null);
-    setRatioWarning(null);
     setBusy(true);
     try {
       const dataUrl = await fileToDataUrl(file);
-      if (isPerson) {
-        const dim = await imageSize(dataUrl);
-        if (dim && !isPortraitRatio(dim.width, dim.height)) {
-          setRatioWarning("这张是横图，看起来不像全身照。请上传竖着拍的全身照。");
-        }
+      // 基本质量：尺寸太小的图多半看不清主体，拦下并提示换一张
+      const dim = await imageSize(dataUrl);
+      if (dim && (dim.width < 200 || dim.height < 200)) {
+        setError("图片太小，可能看不清主体，请换一张清晰的照片");
+        return;
       }
       onChange(dataUrl);
     } catch (e) {
@@ -60,16 +65,37 @@ export default function UploadBox({ kind, value, onChange, confirmed = false, on
   function remove() {
     onChange(null);
     setError(null);
-    setRatioWarning(null);
-    onConfirmed?.(false);
   }
 
   return (
     <div>
       <div className="mb-1.5 flex items-center gap-2">
-        <span className="text-sm font-medium">{isPerson ? "你的全身照" : "衣服图"}</span>
+        <span className="text-sm font-medium">{isPerson ? "你的人像照" : "衣服图"}</span>
+        {!isPerson && (
+          <div className="group relative inline-flex">
+            <button
+              type="button"
+              aria-label="配饰提醒"
+              aria-expanded={showTip}
+              onClick={() => setShowTip((s) => !s)}
+              className="flex h-4 w-4 items-center justify-center rounded-full text-[10px] ring-1 ring-line transition-colors hover:bg-accent/10"
+            >
+              ❓
+            </button>
+            <span
+              role="tooltip"
+              className={`pointer-events-none absolute left-0 top-full z-10 mt-2 w-56 rounded-xl bg-card p-3 text-xs leading-5 text-foreground shadow-lg ring-1 ring-line transition-opacity ${
+                showTip
+                  ? "visible opacity-100"
+                  : "invisible opacity-0 group-hover:visible group-hover:opacity-100"
+              }`}
+            >
+              如果是帽子、眼镜、项链等配饰，则半身效果会更好哦！
+            </span>
+          </div>
+        )}
         <span className="text-xs text-muted">
-          {isPerson ? "竖拍、光线好、背景简单" : "商品图或平铺图均可"}
+          {isPerson ? "全身 / 半身 / 大头均可，光线好、主体清晰" : "商品图或平铺图均可"}
         </span>
       </div>
 
@@ -78,7 +104,7 @@ export default function UploadBox({ kind, value, onChange, confirmed = false, on
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={value}
-            alt={isPerson ? "全身照预览" : "衣服图预览"}
+            alt={isPerson ? "人像照预览" : "衣服图预览"}
             className="max-h-64 w-full object-contain"
           />
           <div className="absolute right-2 top-2 flex gap-2">
@@ -133,20 +159,7 @@ export default function UploadBox({ kind, value, onChange, confirmed = false, on
         }}
       />
 
-      {ratioWarning && <p className="mt-1.5 text-xs text-amber-600">{ratioWarning}</p>}
       {error && <p className="mt-1.5 text-xs text-red-600">{error}</p>}
-
-      {isPerson && value && (
-        <label className="mt-2 flex items-start gap-2 text-xs text-muted">
-          <input
-            type="checkbox"
-            checked={confirmed}
-            onChange={(e) => onConfirmed?.(e.target.checked)}
-            className="mt-0.5 accent-accent"
-          />
-          我确认这是一张清晰、完整的全身照（不是半身或大头照）
-        </label>
-      )}
     </div>
   );
 }

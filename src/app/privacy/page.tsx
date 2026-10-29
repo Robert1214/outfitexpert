@@ -16,7 +16,7 @@ export default function PrivacyPage() {
       <section className="rounded-2xl bg-card p-4 ring-1 ring-line">
         <h2 className="text-base font-semibold">我们收集什么</h2>
         <p className="mt-2 text-sm leading-6 text-muted">
-          你上传的照片（全身照、衣服图），以及你自愿填写的身体数据（身高、体重、三围）和衣服成衣尺寸。
+          你上传的照片（人像照、衣服图），以及你自愿填写的身体数据（身高、体重、三围）和衣服成衣尺寸。
         </p>
       </section>
 

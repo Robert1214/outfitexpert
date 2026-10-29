@@ -8,7 +8,7 @@ import SectionCard from "@/components/SectionCard";
 import UploadBox from "@/components/UploadBox";
 import { savePayload } from "@/lib/storage";
 import type { FitStyle, GarmentSize, PersonBody, TryonPayload } from "@/lib/types";
-import { validateBody, validateGarment, type FieldError } from "@/lib/validation";
+import { validateBody, validateGarment, validateRequiredBody, type FieldError } from "@/lib/validation";
 
 export default function HomePage() {
   const router = useRouter();
@@ -23,10 +23,10 @@ export default function HomePage() {
     hip: "",
   });
   const [garment, setGarment] = useState<Record<string, string>>({
-    size: "",
-    fit: "合体",
+    fit: "合身",
     length: "",
     bust: "",
+    shoulder: "",
   });
   const [bodyErrors, setBodyErrors] = useState<FieldError[]>([]);
   const [garmentErrors, setGarmentErrors] = useState<FieldError[]>([]);
@@ -62,6 +62,14 @@ export default function HomePage() {
       return;
     }
 
+    // 身高、体重必填：未填时红字提示并拦截（PRD v1.1）
+    const requiredErrors = validateRequiredBody(body);
+    if (requiredErrors.length > 0) {
+      setBodyErrors(requiredErrors);
+      setGarmentErrors([]);
+      return;
+    }
+
     const bodyData: PersonBody = {
       height: toNum(body.height),
       weight: toNum(body.weight),
@@ -70,10 +78,10 @@ export default function HomePage() {
       hip: toNum(body.hip),
     };
     const garmentData: GarmentSize = {
-      size: garment.size.trim() || undefined,
       fit: garment.fit as FitStyle,
       length: toNum(garment.length),
       bust: toNum(garment.bust),
+      shoulder: toNum(garment.shoulder),
     };
 
     const be = validateBody(bodyData);
@@ -99,7 +107,7 @@ export default function HomePage() {
     <div className="flex flex-col gap-5 py-6">
       <header>
         <h1 className="text-2xl font-bold tracking-tight">试穿助手</h1>
-        <p className="mt-1 text-sm text-muted">下单前，先看看自己穿上的样子和该买的码</p>
+        <p className="mt-1 text-sm text-muted">下单前，先看看自己穿上的美貌</p>
       </header>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
@@ -116,11 +124,12 @@ export default function HomePage() {
           </div>
         </SectionCard>
 
-        <SectionCard title="身体数据" badge="选填">
+        <SectionCard title="身体数据" badge="身高体重必填">
           <div className="grid grid-cols-2 gap-x-3 gap-y-4">
             <Field
               label="身高"
               unit="cm"
+              required
               value={body.height}
               onChange={setBodyField("height")}
               placeholder="如 165"
@@ -129,6 +138,7 @@ export default function HomePage() {
             <Field
               label="体重"
               unit="kg"
+              required
               value={body.weight}
               onChange={setBodyField("weight")}
               placeholder="如 50"
@@ -160,27 +170,12 @@ export default function HomePage() {
             />
           </div>
           <p className="mt-3 text-xs text-muted">
-            填身高 + 胸围并配合衣服尺寸，才能给出尺码建议。数据只用于本次计算，用完即删。
+            带 * 为必填，三围选填。填身体胸围 + 成衣胸围才能给出合身判断，填衣长还能看到长度提示。三围数据只用于本次计算，用完即删。
           </p>
         </SectionCard>
 
         <SectionCard title="衣服尺寸" badge="选填">
           <div className="grid grid-cols-2 gap-x-3 gap-y-4">
-            <div>
-              <label className="mb-1 block text-sm">尺码</label>
-              <select
-                value={garment.size}
-                onChange={(e) => setGarmentField("size")(e.target.value)}
-                className="w-full rounded-lg bg-card px-3 py-2 text-sm ring-1 ring-line outline-none focus:ring-2 focus:ring-accent/40"
-              >
-                <option value="">选这件衣服的码</option>
-                {["XS", "S", "M", "L", "XL", "XXL"].map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            </div>
             <div>
               <label className="mb-1 block text-sm">版型</label>
               <select
@@ -188,7 +183,7 @@ export default function HomePage() {
                 onChange={(e) => setGarmentField("fit")(e.target.value)}
                 className="w-full rounded-lg bg-card px-3 py-2 text-sm ring-1 ring-line outline-none focus:ring-2 focus:ring-accent/40"
               >
-                <option value="合体">合体</option>
+                <option value="合身">合身</option>
                 <option value="紧身">紧身</option>
                 <option value="宽松">宽松</option>
               </select>
@@ -209,6 +204,15 @@ export default function HomePage() {
               placeholder="如 96"
               error={errorFor(garmentErrors, "bust")}
               hint="填商品尺码表里的平铺胸围，不是你的身体胸围"
+            />
+            <Field
+              label="肩宽"
+              unit="cm"
+              value={garment.shoulder}
+              onChange={setGarmentField("shoulder")}
+              placeholder="如 38"
+              error={errorFor(garmentErrors, "shoulder")}
+              hint="填商品尺码表里的肩宽"
             />
           </div>
         </SectionCard>

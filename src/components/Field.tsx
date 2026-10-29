@@ -8,12 +8,14 @@ interface Props {
   placeholder?: string;
   error?: string;
   hint?: string;
+  required?: boolean;
 }
 
-export default function Field({ label, unit, value, onChange, placeholder, error, hint }: Props) {
+export default function Field({ label, unit, value, onChange, placeholder, error, hint, required }: Props) {
   return (
     <div>
       <label className="mb-1 block text-sm">
+        {required && <span className="mr-0.5 text-red-500">*</span>}
         {label}
         {unit && <span className="ml-1 text-xs text-muted">{unit}</span>}
       </label>

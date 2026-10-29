@@ -5,6 +5,14 @@ export interface FieldError {
   message: string;
 }
 
+/** 身高、体重必填（PRD v1.1）：未填时返回红字提示，禁止进入下一步 */
+export function validateRequiredBody(raw: Record<string, string>): FieldError[] {
+  const errors: FieldError[] = [];
+  if (!raw.height.trim()) errors.push({ field: "height", message: "请填写身高" });
+  if (!raw.weight.trim()) errors.push({ field: "weight", message: "请填写体重" });
+  return errors;
+}
+
 /** 身体数据校验：明显不合理的数值拦下（如腰围 20cm） */
 export function validateBody(b: PersonBody): FieldError[] {
   const errors: FieldError[] = [];
@@ -40,7 +48,7 @@ export function validateBody(b: PersonBody): FieldError[] {
 export function validateGarment(g: GarmentSize): FieldError[] {
   const errors: FieldError[] = [];
 
-  const check = (key: "length" | "bust", label: string, min: number, max: number) => {
+  const check = (key: "length" | "bust" | "shoulder", label: string, min: number, max: number) => {
     const v = g[key];
     if (v == null || Number.isNaN(v)) return;
     if (v < min || v > max) {
@@ -53,6 +61,7 @@ export function validateGarment(g: GarmentSize): FieldError[] {
 
   check("length", "衣长", 30, 160);
   check("bust", "成衣胸围", 60, 220);
+  check("shoulder", "肩宽", 20, 60);
 
   return errors;
 }

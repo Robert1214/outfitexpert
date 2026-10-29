@@ -3,14 +3,21 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { advise } from "@/lib/size-engine";
+import { judgeFit, lengthPositionHint } from "@/lib/size-engine";
 import { clearPayload, loadPayload } from "@/lib/storage";
 import type { TryonPayload } from "@/lib/types";
 
+// PRD v1.1：不输出具体尺码，只给方向和判断
 const VERDICT_LABEL: Record<string, string> = {
   keep: "合身",
-  up: "偏紧 · 建议大一码",
-  down: "偏松 · 建议小一码",
+  up: "偏紧 · 建议看大一档",
+  down: "偏松 · 建议看小一档",
+};
+
+const DIRECTION_TEXT: Record<string, string> = {
+  keep: "放量在理想区间内，无需调整",
+  up: "建议看大一档",
+  down: "建议看小一档",
 };
 
 export default function ResultPage() {
@@ -28,10 +35,15 @@ export default function ResultPage() {
     return () => clearTimeout(t);
   }, []);
 
-  const advice = useMemo(
-    () => (payload ? advise(payload.body, payload.garment) : null),
+  // 合身判断与长度提示相互独立（PRD v1.1 数据依赖表）
+  const fitAdvice = useMemo(
+    () => (payload ? judgeFit(payload.body, payload.garment) : null),
     [payload]
   );
+  const lengthHint = useMemo(() => {
+    if (!payload || !payload.body.height || !payload.garment.length) return null;
+    return lengthPositionHint(payload.garment.length, payload.body.height);
+  }, [payload]);
 
   function restart() {
     clearPayload();
@@ -79,7 +91,7 @@ export default function ResultPage() {
         <div className="relative">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/fake-result.svg" alt="试穿效果图（占位演示）" className="w-full" />
-          {!advice && (
+          {!fitAdvice && (
             <span className="absolute left-2 top-2 rounded-lg bg-black/65 px-2.5 py-1 text-xs text-white">
               无尺码数据，请以实物为准
             </span>
@@ -89,46 +101,61 @@ export default function ResultPage() {
           </span>
         </div>
         <p className="border-t border-line px-4 py-3 text-xs leading-5 text-muted">
-          效果图仅示意颜色、版型、气质和大致长度；精确合身度请以尺码建议为准。M1
+          效果图仅示意颜色、版型、气质和大致长度；精确合身度请以合身判断为准。M1
           演示图，尚未接入真实试穿服务。
         </p>
       </section>
 
-      {advice ? (
+      {fitAdvice || lengthHint ? (
         <section className="rounded-2xl bg-card p-4 ring-1 ring-line">
-          <div className="flex items-center gap-4">
-            <div className="flex h-20 w-20 shrink-0 flex-col items-center justify-center rounded-2xl bg-accent/10 ring-1 ring-accent/30">
-              <span className="text-2xl font-bold text-accent">{advice.size}</span>
-              <span className="text-xs text-accent">建议尺码</span>
-            </div>
-            <div className="flex flex-col gap-1">
-              <h2 className="text-base font-semibold">尺码建议</h2>
+          <h2 className="text-base font-semibold">试穿建议</h2>
+
+          {fitAdvice && (
+            <div className="mt-3 flex flex-col gap-2">
               <span
                 className={`inline-flex w-fit rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                  advice.verdict === "keep"
+                  fitAdvice.verdict === "keep"
                     ? "bg-green-100 text-green-700"
                     : "bg-amber-100 text-amber-700"
                 }`}
               >
-                {VERDICT_LABEL[advice.verdict]}
+                {VERDICT_LABEL[fitAdvice.verdict]}
               </span>
-              {advice.lengthHint && <p className="text-xs text-muted">{advice.lengthHint}</p>}
+              <ul className="flex flex-col gap-2">
+                <li className="flex gap-2 text-sm leading-5">
+                  <span className="mt-0.5 text-accent">·</span>
+                  <span>{fitAdvice.detail}</span>
+                </li>
+                <li className="flex gap-2 text-sm leading-5">
+                  <span className="mt-0.5 text-accent">·</span>
+                  <span>{DIRECTION_TEXT[fitAdvice.verdict]}</span>
+                </li>
+              </ul>
             </div>
-          </div>
-          <ul className="mt-4 flex flex-col gap-2">
-            {advice.tips.map((tip, i) => (
-              <li key={i} className="flex gap-2 text-sm leading-5">
-                <span className="mt-0.5 text-accent">·</span>
-                <span>{tip}</span>
-              </li>
-            ))}
-          </ul>
+          )}
+
+          {lengthHint && (
+            <div
+              className={`flex items-center gap-2 text-sm leading-5 ${
+                fitAdvice ? "mt-3 border-t border-line pt-3" : "mt-2"
+              }`}
+            >
+              <span className="text-accent">·</span>
+              <span>
+                长度提示：<span className="font-medium">{lengthHint}</span>
+              </span>
+            </div>
+          )}
+
+          <p className="mt-3 text-xs text-muted">
+            以上按你填写的成衣尺寸估算，最终以实物试穿为准
+          </p>
         </section>
       ) : (
         <section className="rounded-2xl bg-card p-4 ring-1 ring-line">
-          <h2 className="text-base font-semibold">想拿到尺码建议？</h2>
+          <h2 className="text-base font-semibold">想拿到合身判断？</h2>
           <p className="mt-1 text-sm leading-5 text-muted">
-            回到上一步，填写身高、胸围，以及衣服的成衣胸围和尺码，即可得到建议码和合身提示。
+            回到上一步，填写你的胸围和衣服的成衣胸围（在商品尺码表里），即可得到合身判断；再填衣长还能看到长度提示。
           </p>
         </section>
       )}

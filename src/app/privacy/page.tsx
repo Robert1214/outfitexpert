@@ -23,7 +23,7 @@ export default function PrivacyPage() {
       <section className="rounded-2xl bg-card p-4 ring-1 ring-line">
         <h2 className="text-base font-semibold">数据怎么用</h2>
         <ul className="mt-2 flex list-disc flex-col gap-1 pl-5 text-sm leading-6 text-muted">
-          <li>仅用于生成试穿效果图和计算尺码建议</li>
+          <li>仅用于生成试穿效果图和计算合身判断</li>
           <li>不用于广告、用户画像或任何其他目的</li>
         </ul>
       </section>
@@ -40,7 +40,7 @@ export default function PrivacyPage() {
       <section className="rounded-2xl bg-card p-4 ring-1 ring-line">
         <h2 className="text-base font-semibold">你随时可以</h2>
         <ul className="mt-2 flex list-disc flex-col gap-1 pl-5 text-sm leading-6 text-muted">
-          <li>不填任何身体数据，直接出图（此时不给尺码建议）</li>
+          <li>不填三围和衣服尺寸，直接出图（此时不给合身判断）</li>
           <li>清除浏览器数据，删除全部本地记录</li>
         </ul>
       </section>

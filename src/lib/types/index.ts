@@ -1,6 +1,6 @@
-export type FitStyle = "紧身" | "合体" | "宽松";
+export type FitStyle = "紧身" | "合身" | "宽松";
 
-/** 用户身体数据（全部选填，单位 cm / kg） */
+/** 用户身体数据（身高体重必填由表单层保证；其余选填，单位 cm / kg） */
 export interface PersonBody {
   height?: number;
   weight?: number;
@@ -11,10 +11,10 @@ export interface PersonBody {
 
 /** 衣服成衣数据（全部选填） */
 export interface GarmentSize {
-  size?: string; // S/M/L/XL/XXL
-  fit?: FitStyle; // 版型，默认合体
+  fit?: FitStyle; // 版型，默认合身
   length?: number; // 衣长 cm
   bust?: number; // 成衣胸围 cm
+  shoulder?: number; // 肩宽 cm
 }
 
 /** 一次试穿的完整数据（M1 存 localStorage，不接后端） */
@@ -25,12 +25,10 @@ export interface TryonPayload {
   garment: GarmentSize;
 }
 
-/** 尺码建议结果 */
-export interface SizeAdvice {
-  size: string; // 建议码
-  verdict: "keep" | "up" | "down"; // 合身 / 建议大一码 / 建议小一码
+/** 合身判断结果（不输出具体尺码，只给方向和放量） */
+export interface FitAdvice {
+  verdict: "keep" | "up" | "down"; // 合身 / 偏紧(建议看大一档) / 偏松(建议看小一档)
   bustEase: number; // 胸围放量 cm
   fitBand: string; // 版型理想放量区间描述
-  lengthHint: string | null; // 衣长位置提示
-  tips: string[]; // 合身提示
+  detail: string; // 放量说明
 }

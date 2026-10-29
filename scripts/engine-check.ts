@@ -1,6 +1,6 @@
-// 尺码引擎逻辑检查（开发期手动跑：npx tsx scripts/engine-check.ts）
-import { advise, canAdvise } from "../src/lib/size-engine";
-import { validateBody, validateGarment } from "../src/lib/validation";
+// 合身判断引擎逻辑检查（开发期手动跑：npx tsx scripts/engine-check.ts）
+import { canJudgeFit, judgeFit, lengthPositionHint } from "../src/lib/size-engine";
+import { validateBody, validateGarment, validateRequiredBody } from "../src/lib/validation";
 
 let failed = 0;
 
@@ -10,20 +10,37 @@ function check(name: string, got: unknown, expect: unknown) {
   console.log(pass ? "PASS" : "FAIL", name, "→", JSON.stringify(got));
 }
 
-// 合身：放量 92-84=8cm，落在合体 6~10 区间 → 保持 M
-check("合身", advise({ height: 165, bust: 84 }, { size: "M", fit: "合体", bust: 92, length: 58 })?.verdict + "/" + advise({ height: 165, bust: 84 }, { size: "M", fit: "合体", bust: 92, length: 58 })?.size, "keep/M");
+// 合身：放量 92-84=8cm，落在合身 6~10 区间
+check("合身", judgeFit({ height: 165, bust: 84 }, { fit: "合身", bust: 92, length: 58 })?.verdict, "keep");
 
-// 偏紧：放量 4cm < 6 → 建议大一码 L
-check("偏紧建议大一码", (() => { const a = advise({ height: 165, bust: 84 }, { size: "M", fit: "合体", bust: 88 }); return a ? a.verdict + "/" + a.size : null; })(), "up/L");
+// 偏紧：放量 4cm < 6 → 建议看大一档
+check("偏紧建议看大一档", judgeFit({ height: 165, bust: 84 }, { fit: "合身", bust: 88 })?.verdict, "up");
 
-// 偏松：放量 20cm > 16 → 建议小一码 M
-check("偏松建议小一码", (() => { const a = advise({ height: 160, bust: 100 }, { size: "L", fit: "宽松", bust: 120 }); return a ? a.verdict + "/" + a.size : null; })(), "down/M");
+// 偏松：放量 20cm > 16 → 建议看小一档
+check("偏松建议看小一档", judgeFit({ height: 160, bust: 100 }, { fit: "宽松", bust: 120 })?.verdict, "down");
 
-// 数据不足 → 不给建议
-check("数据不足不给建议", advise({ height: 165 }, { size: "M", bust: 92 }), null);
+// 缺身体胸围 → 不做合身判断
+check("缺身体胸围不给判断", judgeFit({ height: 165 }, { fit: "合身", bust: 92 }), null);
 
-// canAdvise 最低要求
-check("canAdvise 成立", canAdvise({ height: 165, bust: 84 }, { size: "M", bust: 92 }), true);
+// 缺成衣胸围 → 不做合身判断
+check("缺成衣胸围不给判断", judgeFit({ height: 165, bust: 84 }, { fit: "合身", length: 58 }), null);
+
+// canJudgeFit 最低要求：身高 + 身体胸围 + 成衣胸围
+check("canJudgeFit 成立", canJudgeFit({ height: 165, bust: 84 }, { fit: "合身", bust: 92 }), true);
+check("canJudgeFit 缺身高不成立", canJudgeFit({ bust: 84 }, { fit: "合身", bust: 92 }), false);
+
+// 放量数值：92 - 84 = 8
+check("放量数值", judgeFit({ height: 165, bust: 84 }, { fit: "合身", bust: 92 })?.bustEase, 8);
+
+// 长度提示独立于合身判断：只要有身高 + 衣长
+check("长度提示-常规", lengthPositionHint(58, 165), "常规长度：大致盖住臀部上沿");
+check("长度提示-短款", lengthPositionHint(50, 165), "短款：大致在腰线附近");
+check("长度提示-长款", lengthPositionHint(85, 165), "长款：大致到膝盖附近");
+
+// 身高、体重必填：未填 → 红字提示
+check("身高未填被拦下", validateRequiredBody({ height: "", weight: "50" }).map((e) => e.message), ["请填写身高"]);
+check("体重未填被拦下", validateRequiredBody({ height: "165", weight: "  " }).map((e) => e.message), ["请填写体重"]);
+check("身高体重都填了", validateRequiredBody({ height: "165", weight: "50" }).length, 0);
 
 // 腰围 20cm 明显不合理 → 拦下
 check("腰围20cm被拦下", validateBody({ waist: 20 }).some((e) => e.field === "waist"), true);
@@ -34,8 +51,12 @@ check("腰围大于胸围被拦下", validateBody({ bust: 80, waist: 90 }).some(
 // 成衣胸围 300 → 拦下
 check("成衣胸围300被拦下", validateGarment({ bust: 300 }).some((e) => e.field === "bust"), true);
 
+// 肩宽 300 → 拦下
+check("肩宽300被拦下", validateGarment({ shoulder: 300 }).some((e) => e.field === "shoulder"), true);
+
 // 合理数据 → 无错误
 check("合理数据无错误", validateBody({ height: 165, weight: 50, bust: 84, waist: 66, hip: 90 }).length === 0, true);
+check("合理衣服数据无错误", validateGarment({ fit: "合身", length: 58, bust: 92, shoulder: 38 }).length === 0, true);
 
 console.log(failed === 0 ? "全部通过" : `有 ${failed} 个失败`);
 process.exit(failed === 0 ? 0 : 1);

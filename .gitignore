@@ -33,6 +33,9 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# 本地测试素材（不提交）
+/test-assets/
+
 # vercel
 .vercel
 

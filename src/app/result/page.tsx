@@ -308,7 +308,7 @@ export default function ResultPage() {
             onClick={regenerate}
             className="text-sm font-medium text-accent underline-offset-2 transition hover:underline"
           >
-            再来一次
+            重新生成
           </button>
           <button
             onClick={reset}

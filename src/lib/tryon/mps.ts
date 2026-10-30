@@ -12,8 +12,9 @@ const MpsClient = mps.v20190612.Client;
 const TRYON_MODEL = "tryon-1.0-lite";
 /** 输出分辨率：1K（1K+flash 为当前选定配置，实测约 50 秒） */
 const OUTPUT_RESOLUTION = "1K";
-/** 换装指令：把模特原服装替换为参考服饰 */
-export const TRYON_PROMPT = "将[图片1]中模特的服装替换为[图片2]中的服装，保持人物形象与姿态自然";
+/** 换装指令：换装同时强约束五官不变，抑制面部被重绘 */
+export const TRYON_PROMPT =
+  "将[图片1]中模特的服装替换为[图片2]中的服装。严格保持[图片1]中人物的五官、脸型、肤色、发型完全不变，不要重新生成面部；保持姿态、背景、光照不变。";
 
 /** ImageSet 参考图类型（官方支持值） */
 export type RefImageType =
@@ -71,11 +72,19 @@ export async function startTryonTask(
         },
       },
       AddOnParameter: {
-        // 支持多张参考图（官方上限 13 张）：Type 可为 garment/accessories/shoes/…
-        ImageSet: input.refs.map((r) => ({
-          Type: r.type,
-          Image: { Type: "URL", UrlInputInfo: { Url: r.url } },
-        })),
+        // 参考图（官方上限 13 张）：服饰等在先，identity 固定追加在最后，
+        // 保证 Prompt 里 [图片2] 起的编号仍对应服饰参考图。
+        ImageSet: [
+          ...input.refs.map((r) => ({
+            Type: r.type,
+            Image: { Type: "URL", UrlInputInfo: { Url: r.url } },
+          })),
+          // 身份参考图：用同一张人像锚定五官，抑制换装时面部被重绘
+          {
+            Type: "identity",
+            Image: { Type: "URL", UrlInputInfo: { Url: input.personUrl } },
+          },
+        ],
       },
     });
     taskId = res.TaskId;

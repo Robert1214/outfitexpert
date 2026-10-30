@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Syne } from "next/font/google";
 import Field from "@/components/Field";
 import GarmentSlot from "@/components/GarmentSlot";
 import HintTip from "@/components/HintTip";
@@ -20,6 +21,9 @@ import {
   type TryonPayload,
 } from "@/lib/types";
 import { validateBody, validateGarment, type FieldError } from "@/lib/validation";
+
+/** 品牌字标：Syne 800，比系统无衬线更有设计感（构建时自托管，运行时不依赖外网） */
+const brandFont = Syne({ subsets: ["latin"], weight: "800", display: "swap" });
 
 const emptyImages = () => Array<string | null>(MAX_GARMENTS).fill(null);
 const emptyFiles = () => Array<File | null>(MAX_GARMENTS).fill(null);
@@ -155,7 +159,9 @@ export default function HomePage() {
     <div className="flex flex-col gap-6 pb-4 pt-6 lg:pt-10">
       <header className="flex flex-col gap-5 border-b border-line pb-6 lg:flex-row lg:items-end lg:justify-between lg:pb-8">
         <div>
-          <p className="text-2xl font-semibold uppercase leading-none tracking-[0.2em] text-accent lg:text-3xl">
+          <p
+            className={`${brandFont.className} text-3xl font-extrabold uppercase leading-none tracking-[0.12em] text-accent lg:text-4xl`}
+          >
             Outfit Expert
           </p>
           <p className="mt-2 text-sm text-muted lg:text-base">下单前，先看看自己穿上的美貌</p>

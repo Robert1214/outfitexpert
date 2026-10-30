@@ -8,12 +8,33 @@ import type { TryonConfig } from "./config";
 
 const MpsClient = mps.v20190612.Client;
 
-/** 换装模型：tryon-1.0-lite（2026-10-30 提速验证：对比 flash 的质量与耗时） */
-const TRYON_MODEL = "tryon-1.0-lite";
-/** 输出分辨率：1K 提速（2K 实测约 60 秒，1K 更快） */
+/** 换装模型：tryon-1.0-flash（2026-10-30 A/B 实测：效果优于 lite，选定档位） */
+const TRYON_MODEL = "tryon-1.0-flash";
+/** 输出分辨率：1K（1K+flash 为当前选定配置，实测约 50 秒） */
 const OUTPUT_RESOLUTION = "1K";
 /** 换装指令：把模特原服装替换为参考服饰 */
-const TRYON_PROMPT = "将[图片1]中模特的服装替换为[图片2]中的服装，保持人物形象与姿态自然";
+export const TRYON_PROMPT = "将[图片1]中模特的服装替换为[图片2]中的服装，保持人物形象与姿态自然";
+
+/** ImageSet 参考图类型（官方支持值） */
+export type RefImageType =
+  | "garment"
+  | "accessories"
+  | "shoes"
+  | "identity"
+  | "pose"
+  | "background";
+
+export interface RefImageUrl {
+  type: RefImageType;
+  url: string;
+}
+
+export interface StartTryonInput {
+  personUrl: string;
+  refs: RefImageUrl[];
+  /** 自定义换装指令，缺省用 TRYON_PROMPT */
+  prompt?: string;
+}
 
 export interface TryonTaskOpts {
   /** 轮询总时长上限（MPS 换装通常 20~60 秒） */
@@ -33,12 +54,12 @@ function newClient(cfg: TryonConfig) {
 /** 发起 AI 换装任务，返回 TaskId */
 export async function startTryonTask(
   cfg: TryonConfig,
-  urls: { personUrl: string; garmentUrl: string }
+  input: StartTryonInput
 ): Promise<string> {
   let taskId: string | undefined;
   try {
     const res = await newClient(cfg).ProcessImage({
-      InputInfo: { Type: "URL", UrlInputInfo: { Url: urls.personUrl } },
+      InputInfo: { Type: "URL", UrlInputInfo: { Url: input.personUrl } },
       // RMS：结果不落我们自己的存储，直接返回 1 小时有效的链接
       OutputStorage: { Type: "RMS" },
       OutputDir: "/outfitexpert/",
@@ -46,16 +67,15 @@ export async function startTryonTask(
         AiTryOnConfig: {
           Model: TRYON_MODEL,
           Resolution: OUTPUT_RESOLUTION,
-          Prompt: TRYON_PROMPT,
+          Prompt: input.prompt ?? TRYON_PROMPT,
         },
       },
       AddOnParameter: {
-        ImageSet: [
-          {
-            Type: "garment", // 服饰参考图
-            Image: { Type: "URL", UrlInputInfo: { Url: urls.garmentUrl } },
-          },
-        ],
+        // 支持多张参考图（官方上限 13 张）：Type 可为 garment/accessories/shoes/…
+        ImageSet: input.refs.map((r) => ({
+          Type: r.type,
+          Image: { Type: "URL", UrlInputInfo: { Url: r.url } },
+        })),
       },
     });
     taskId = res.TaskId;

@@ -44,6 +44,8 @@ export async function POST(req: NextRequest) {
   // 3. 执行换装（上传中转 → 发起任务 → 轮询 → 清理）
   try {
     const { imageUrl } = await runTryon(person, garment);
+    // 追踪用：每次测试出了哪张结果图，与上传的衣服图一一对应
+    console.log(`[tryon] 结果图: ${imageUrl}`);
     return NextResponse.json({ imageUrl });
   } catch (e) {
     if (e instanceof TryonError) {

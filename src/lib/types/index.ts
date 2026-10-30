@@ -1,6 +1,9 @@
 export type FitStyle = "紧身" | "合身" | "宽松";
 
-/** 用户身体数据（身高体重必填由表单层保证；其余选填，单位 cm / kg） */
+/** 单次试穿最多接收的单品图数量（PRD v1.4） */
+export const MAX_GARMENTS = 4;
+
+/** 用户身体数据（全部选填，单位 cm / kg；PRD v1.4 起身高体重不再必填） */
 export interface PersonBody {
   height?: number;
   weight?: number;
@@ -17,10 +20,11 @@ export interface GarmentSize {
   shoulder?: number; // 肩宽 cm
 }
 
-/** 一次试穿的完整数据（M1 存 localStorage，不接后端） */
+/** 一次试穿的完整数据（图片压缩版存 localStorage，高清版走内存通道） */
 export interface TryonPayload {
   personImage: string;
-  garmentImage: string;
+  /** 单品图，1~4 张，按上传顺序对应 [图片2]…[图片5] */
+  garmentImages: string[];
   body: PersonBody;
   garment: GarmentSize;
 }

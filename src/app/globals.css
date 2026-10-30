@@ -1,13 +1,17 @@
 @import "tailwindcss";
 
 :root {
-  --background: #faf7f2;
-  --foreground: #2a2520;
+  /* 冷白底 + 墨绿主色：比米色更干净，和墨绿不打架 */
+  --background: #f3f5f4;
+  --foreground: #1b2722;
   --card: #ffffff;
-  --muted: #8b8177;
-  --line: #e9e1d4;
-  --accent: #c05f3c;
-  --accent-deep: #a34e2f;
+  --muted: #66726c;
+  --line: #dfe6e1;
+  --accent: #1f3d35;
+  --accent-deep: #142d26;
+  --accent-soft: #e8f0ea;
+  --surface: #edf2ef;
+  --danger: #b23b2e;
 }
 
 @theme inline {
@@ -18,12 +22,27 @@
   --color-line: var(--line);
   --color-accent: var(--accent);
   --color-accent-deep: var(--accent-deep);
+  --color-accent-soft: var(--accent-soft);
+  --color-surface: var(--surface);
+  --color-danger: var(--danger);
   --font-sans: ui-sans-serif, system-ui, -apple-system, "PingFang SC",
     "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  --font-serif: "Songti SC", "STSong", "Noto Serif SC", "Source Han Serif SC",
+    "SimSun", serif;
 }
 
 body {
+  min-height: 100dvh;
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
+}
+
+::selection {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
 }

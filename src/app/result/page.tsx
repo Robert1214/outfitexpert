@@ -34,6 +34,8 @@ export default function ResultPage() {
   const [resultImage, setResultImage] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
+  // 悬停看原图（桌面）/ 点按切换（手机）
+  const [showOriginal, setShowOriginal] = useState(false);
 
   const startTryon = useCallback(async (p: TryonPayload) => {
     const t0 = Date.now();
@@ -41,15 +43,15 @@ export default function ResultPage() {
     const controller = new AbortController();
     const abortTimer = setTimeout(() => controller.abort(), CLIENT_TIMEOUT_MS);
     try {
-      // 上传给后端优先用内存里的高清图（最长边 2048）；刷新页面内存丢失时
+      // 上传给后端优先用内存里的高清图；刷新页面内存丢失时
       // 退回 localStorage 的压缩版，功能不受影响
       const pending = getPendingTryon();
       const personImage = pending?.personImage ?? p.personImage;
-      const garmentImage = pending?.garmentImage ?? p.garmentImage;
+      const garmentImages = pending?.garmentImages ?? p.garmentImages;
       const res = await fetch("/api/tryon", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ personImage, garmentImage }),
+        body: JSON.stringify({ personImage, garmentImages }),
         signal: controller.signal,
       });
       const data = (await res.json().catch(() => null)) as { imageUrl?: string; error?: string } | null;
@@ -74,7 +76,20 @@ export default function ResultPage() {
   // 客户端才读 localStorage（SSR 没有 localStorage），读完后立即发起试穿
   useEffect(() => {
     const t = setTimeout(() => {
-      const p = loadPayload();
+      const stored = loadPayload();
+      const pending = getPendingTryon();
+      // 4 张压缩图可能撑爆 localStorage（savePayload 会静默失败）；
+      // 同一标签页里 pending 内存通道还在，用它兜底，至少能出图
+      const p: TryonPayload | null =
+        stored ??
+        (pending
+          ? {
+              personImage: pending.personImage,
+              garmentImages: pending.garmentImages,
+              body: {},
+              garment: {},
+            }
+          : null);
       setPayload(p);
       if (!p) {
         setStage("missing");
@@ -106,30 +121,34 @@ export default function ResultPage() {
     setStage("loading");
     setErrorMsg(null);
     setElapsed(0);
+    setShowOriginal(false);
     void startTryon(payload);
   }
 
   if (stage === "loading") {
     return (
-      <div className="flex flex-col items-center gap-3 py-28 text-center">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-line border-t-accent" />
-        <p className="text-sm font-medium">AI 正在为你试穿…</p>
-        <p className="text-xs text-muted">
+      <div className="flex min-h-[75vh] flex-col items-center justify-center gap-3 text-center">
+        <div className="h-12 w-12 animate-spin rounded-full border-[3px] border-line border-t-accent" />
+        <p className="mt-2 font-serif text-xl text-accent">AI 正在为你试穿</p>
+        <p className="text-sm text-muted">
           通常需要 20~60 秒{elapsed > 5 ? `，已等待 ${elapsed} 秒` : ""}
         </p>
-        <p className="text-xs text-muted">期间请不要关闭页面</p>
+        <p className="text-xs text-muted">期间请不要关闭或刷新页面</p>
+        <div className="mt-3 h-1 w-48 overflow-hidden rounded-full bg-line">
+          <div className="h-full w-1/3 animate-pulse rounded-full bg-accent/60" />
+        </div>
       </div>
     );
   }
 
   if (stage === "missing") {
     return (
-      <div className="flex flex-col items-center gap-4 py-24 text-center">
+      <div className="flex min-h-[70vh] flex-col items-center justify-center gap-4 text-center">
         <p className="text-4xl">🤷</p>
         <p className="text-sm text-muted">没有找到试穿数据，可能已过期或未提交</p>
         <Link
           href="/"
-          className="rounded-full bg-accent px-6 py-2.5 text-sm font-semibold text-white hover:bg-accent-deep"
+          className="rounded-full bg-accent px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-accent-deep"
         >
           去上传
         </Link>
@@ -139,20 +158,20 @@ export default function ResultPage() {
 
   if (stage === "error") {
     return (
-      <div className="flex flex-col items-center gap-4 py-24 text-center">
+      <div className="flex min-h-[70vh] flex-col items-center justify-center gap-4 text-center">
         <p className="text-4xl">😢</p>
         <p className="text-sm font-medium">生成失败，请重试</p>
         <p className="text-xs text-muted">{errorMsg}</p>
         <div className="flex gap-3">
           <button
             onClick={retry}
-            className="rounded-full bg-accent px-6 py-2.5 text-sm font-semibold text-white hover:bg-accent-deep"
+            className="rounded-full bg-accent px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-accent-deep"
           >
             重试
           </button>
           <button
             onClick={restart}
-            className="rounded-full px-6 py-2.5 text-sm font-semibold text-muted ring-1 ring-line hover:text-foreground"
+            className="rounded-full px-6 py-2.5 text-sm font-semibold text-muted ring-1 ring-line transition hover:text-foreground"
           >
             返回首页
           </button>
@@ -163,101 +182,146 @@ export default function ResultPage() {
 
   if (!payload) return null; // 理论不可达，防御
 
+  // 悬停对比优先用内存里的高清原图；刷新后内存丢失则退回 localStorage 压缩版
+  const originalImage = getPendingTryon()?.personImage ?? payload.personImage;
+
   return (
-    <div className="flex flex-col gap-5 py-6">
-      <header className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">试穿结果</h1>
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 py-6 lg:py-8">
+      <header className="flex items-end justify-between border-b border-line pb-4">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.3em] text-muted">Result</p>
+          <h1 className="mt-1 font-serif text-2xl font-semibold text-accent">试穿结果</h1>
+        </div>
         <button
           onClick={restart}
-          className="text-sm font-medium text-accent underline-offset-2 hover:underline"
+          className="text-sm font-medium text-accent underline-offset-2 transition hover:underline"
         >
-          再来一次
+          再来一次 →
         </button>
       </header>
 
-      <section className="overflow-hidden rounded-2xl bg-card ring-1 ring-line">
-        <div className="relative">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={resultImage ?? undefined}
-            alt="AI 试穿效果图"
-            className="w-full"
-          />
-          {!fitAdvice && (
-            <span className="absolute left-2 top-2 rounded-lg bg-black/65 px-2.5 py-1 text-xs text-white">
-              无尺码数据，请以实物为准
-            </span>
-          )}
-          <span className="absolute bottom-2 right-2 rounded-lg bg-black/65 px-2.5 py-1 text-xs text-white">
-            AI 生成
-          </span>
-        </div>
-        <p className="border-t border-line px-4 py-3 text-xs leading-5 text-muted">
-          效果图仅示意颜色、版型、气质和大致长度（人像为半身 / 大头照时，效果图可能只呈现上半身）；精确合身度请以合身判断为准。
-          结果图链接约 1 小时内有效，请及时保存。
-        </p>
-      </section>
-
-      {fitAdvice || lengthHint ? (
-        <section className="rounded-2xl bg-card p-4 ring-1 ring-line">
-          <h2 className="text-base font-semibold">试穿建议</h2>
-
-          {fitAdvice && (
-            <div className="mt-3 flex flex-col gap-2">
-              <span
-                className={`inline-flex w-fit rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                  fitAdvice.verdict === "keep"
-                    ? "bg-green-100 text-green-700"
-                    : "bg-amber-100 text-amber-700"
-                }`}
-              >
-                {VERDICT_LABEL[fitAdvice.verdict]}
-              </span>
-              <ul className="flex flex-col gap-2">
-                <li className="flex gap-2 text-sm leading-5">
-                  <span className="mt-0.5 text-accent">·</span>
-                  <span>{fitAdvice.detail}</span>
-                </li>
-                <li className="flex gap-2 text-sm leading-5">
-                  <span className="mt-0.5 text-accent">·</span>
-                  <span>{DIRECTION_TEXT[fitAdvice.verdict]}</span>
-                </li>
-              </ul>
-            </div>
-          )}
-
-          {lengthHint && (
-            <div
-              className={`flex items-center gap-2 text-sm leading-5 ${
-                fitAdvice ? "mt-3 border-t border-line pt-3" : "mt-2"
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] lg:items-start lg:gap-6">
+        <section className="overflow-hidden rounded-2xl border border-line bg-card">
+          <button
+            type="button"
+            aria-label="查看原图对比"
+            aria-pressed={showOriginal}
+            onPointerEnter={(e) => {
+              if (e.pointerType === "mouse") setShowOriginal(true);
+            }}
+            onPointerLeave={(e) => {
+              if (e.pointerType === "mouse") setShowOriginal(false);
+            }}
+            onClick={(e) => {
+              // 鼠标点击不做切换（悬停已经展示原图）；触摸/键盘点击切换
+              const pointerType = (e.nativeEvent as PointerEvent).pointerType;
+              if (pointerType === "mouse") return;
+              setShowOriginal((v) => !v);
+            }}
+            className="group relative block w-full cursor-pointer bg-surface"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={resultImage ?? undefined}
+              alt="AI 试穿效果图"
+              className={`block max-h-[70vh] w-full object-contain transition-opacity duration-200 lg:max-h-[78vh] ${
+                showOriginal ? "opacity-0" : "opacity-100"
               }`}
-            >
-              <span className="text-accent">·</span>
-              <span>
-                长度提示：<span className="font-medium">{lengthHint}</span>
+            />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={originalImage}
+              alt="原始模特图"
+              className={`absolute inset-0 h-full w-full object-contain transition-opacity duration-200 ${
+                showOriginal ? "opacity-100" : "opacity-0"
+              }`}
+            />
+            <div className="absolute left-3 top-3 flex flex-col items-start gap-2">
+              <span className="rounded-full bg-foreground/75 px-2.5 py-1 text-xs text-white backdrop-blur">
+                {showOriginal ? "原图" : "AI 试穿"}
               </span>
+              {!fitAdvice && !showOriginal && (
+                <span className="rounded-full bg-foreground/75 px-2.5 py-1 text-xs text-white backdrop-blur">
+                  无尺码数据，请以实物为准
+                </span>
+              )}
             </div>
+            {!showOriginal && (
+              <span className="absolute bottom-3 right-3 rounded-full bg-foreground/75 px-2.5 py-1 text-xs text-white backdrop-blur">
+                AI 生成
+              </span>
+            )}
+          </button>
+          <div className="flex flex-col gap-1 border-t border-line px-4 py-3 text-xs leading-5 text-muted sm:flex-row sm:items-center sm:justify-between">
+            <p>悬停 / 点按图片，查看原图对比</p>
+            <p>结果图链接约 1 小时内有效，请及时保存</p>
+          </div>
+          <p className="border-t border-line px-4 py-3 text-xs leading-5 text-muted">
+            效果图仅示意颜色、版型、气质和大致长度（人像为半身 / 大头照时，效果图可能只呈现上半身）；精确合身度请以合身判断为准。
+          </p>
+        </section>
+
+        <aside className="flex flex-col gap-5 lg:sticky lg:top-6">
+          {fitAdvice || lengthHint ? (
+            <section className="rounded-2xl border border-line bg-card p-5">
+              <h2 className="font-serif text-xl font-semibold text-accent">试穿建议</h2>
+
+              {fitAdvice && (
+                <div className="mt-4">
+                  <span
+                    className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${
+                      fitAdvice.verdict === "keep"
+                        ? "bg-accent-soft text-accent"
+                        : "bg-amber-50 text-amber-700"
+                    }`}
+                  >
+                    {VERDICT_LABEL[fitAdvice.verdict]}
+                  </span>
+                  <p className="mt-3 text-sm leading-6">{fitAdvice.detail}</p>
+                  <p className="mt-1.5 text-sm leading-6 text-muted">
+                    {DIRECTION_TEXT[fitAdvice.verdict]}
+                  </p>
+                </div>
+              )}
+
+              {lengthHint && (
+                <div
+                  className={`text-sm leading-6 ${
+                    fitAdvice ? "mt-4 border-t border-line pt-4" : "mt-3"
+                  }`}
+                >
+                  <span className="text-muted">长度提示：</span>
+                  <span className="font-medium text-foreground">{lengthHint}</span>
+                </div>
+              )}
+
+              <p className="mt-4 border-t border-line pt-3 text-[11px] leading-5 text-muted">
+                以上按你填写的成衣尺寸估算，最终以实物试穿为准
+              </p>
+            </section>
+          ) : (
+            <section className="rounded-2xl border border-line bg-card p-5">
+              <h2 className="font-serif text-xl font-semibold text-accent">无尺码数据</h2>
+              <p className="mt-2 text-sm leading-6 text-muted">
+                这次只生成了效果图。回到首页填写身高、胸围和成衣胸围，就能额外得到合身判断；再填衣长还能看到长度提示。
+              </p>
+              <Link
+                href="/"
+                className="mt-4 inline-flex rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-accent-deep"
+              >
+                去补尺寸
+              </Link>
+            </section>
           )}
 
-          <p className="mt-3 text-xs text-muted">
-            以上按你填写的成衣尺寸估算，最终以实物试穿为准
+          <p className="px-1 text-[11px] leading-5 text-muted">
+            本次数据仅保存在你的浏览器里，图片仅发送给腾讯云生成效果图，
+            <Link href="/privacy" className="text-accent underline underline-offset-2">
+              查看隐私说明
+            </Link>
           </p>
-        </section>
-      ) : (
-        <section className="rounded-2xl bg-card p-4 ring-1 ring-line">
-          <h2 className="text-base font-semibold">想拿到合身判断？</h2>
-          <p className="mt-1 text-sm leading-5 text-muted">
-            回到上一步，填写你的胸围和衣服的成衣胸围（在商品尺码表里），即可得到合身判断；再填衣长还能看到长度提示。
-          </p>
-        </section>
-      )}
-
-      <p className="text-center text-xs text-muted">
-        本次数据仅保存在你的浏览器里，图片仅发送给腾讯云生成效果图，
-        <Link href="/privacy" className="text-accent underline underline-offset-2">
-          查看隐私说明
-        </Link>
-      </p>
+        </aside>
+      </div>
     </div>
   );
 }

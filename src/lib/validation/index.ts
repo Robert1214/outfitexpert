@@ -1,19 +1,11 @@
-import type { GarmentSize, PersonBody } from "@/lib/types";
+﻿import type { GarmentSize, PersonBody } from "@/lib/types";
 
 export interface FieldError {
   field: string;
   message: string;
 }
 
-/** 身高、体重必填（PRD v1.1）：未填时返回红字提示，禁止进入下一步 */
-export function validateRequiredBody(raw: Record<string, string>): FieldError[] {
-  const errors: FieldError[] = [];
-  if (!raw.height.trim()) errors.push({ field: "height", message: "请填写身高" });
-  if (!raw.weight.trim()) errors.push({ field: "weight", message: "请填写体重" });
-  return errors;
-}
-
-/** 身体数据校验：明显不合理的数值拦下（如腰围 20cm） */
+/** 身体数据校验：全部选填（PRD v1.4）；填了才校验，明显不合理的数值拦下（如腰围 20cm） */
 export function validateBody(b: PersonBody): FieldError[] {
   const errors: FieldError[] = [];
 
@@ -66,7 +58,7 @@ export function validateGarment(g: GarmentSize): FieldError[] {
   return errors;
 }
 
-/** 图片文件校验（格式 / 大小）。人像不强制全身（PRD v1.2），清晰度 M2 换视觉模型判断 */
+/** 图片文件校验（格式 / 大小）。人像与单品图同一套规则；清晰度 M2 换视觉模型判断 */
 export function validatePhotoFile(file: File): string | null {
   if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
     return "只支持 JPG / PNG / WebP 格式";

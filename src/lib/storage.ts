@@ -74,7 +74,15 @@ export function savePayload(p: TryonPayload): void {
 export function loadPayload(): TryonPayload | null {
   try {
     const raw = localStorage.getItem(KEY);
-    return raw ? (JSON.parse(raw) as TryonPayload) : null;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as TryonPayload & { garmentImage?: string };
+    // 兼容 v1.3 及以前的单张衣服图缓存（用户浏览器里可能还留着旧 payload）
+    if (!Array.isArray(parsed.garmentImages) && typeof parsed.garmentImage === "string") {
+      parsed.garmentImages = [parsed.garmentImage];
+    }
+    if (!Array.isArray(parsed.garmentImages) || parsed.garmentImages.length === 0) return null;
+    delete parsed.garmentImage;
+    return parsed;
   } catch {
     return null;
   }

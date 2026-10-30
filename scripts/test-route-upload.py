@@ -1,6 +1,6 @@
 # 真实上传链路验证：模拟浏览器提交——原图 base64 成 data URL → POST /api/tryon → 下载结果图。
 # 服务端日志（test-assets/dev.log）里 [tryon] 行会打印实际传给 MPS 的像素尺寸。
-# 用法：python scripts/test-route-upload.py [人像图] [衣服图] [结果保存名] [服务地址]
+# 用法：python scripts/test-route-upload.py [人像图] [单品图] [结果保存名] [服务地址]
 import base64
 import json
 import sys
@@ -27,11 +27,13 @@ def mime_of(name: str) -> str:
 
 person = (ASSETS / person_name).read_bytes()
 garment = (ASSETS / garment_name).read_bytes()
-print(f"提交：人像 {person_name}（{len(person) / 1024:.0f}KB），衣服 {garment_name}（{len(garment) / 1024:.0f}KB）")
+print(f"提交：人像 {person_name}（{len(person) / 1024:.0f}KB），单品 {garment_name}（{len(garment) / 1024:.0f}KB）")
 body = json.dumps(
     {
         "personImage": f"data:{mime_of(person_name)};base64,{base64.b64encode(person).decode()}",
-        "garmentImage": f"data:{mime_of(garment_name)};base64,{base64.b64encode(garment).decode()}",
+        "garmentImages": [
+            f"data:{mime_of(garment_name)};base64,{base64.b64encode(garment).decode()}"
+        ],
     }
 ).encode()
 

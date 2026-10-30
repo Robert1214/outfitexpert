@@ -16,6 +16,20 @@ const OUTPUT_RESOLUTION = "1K";
 export const TRYON_PROMPT =
   "将[图片1]中模特的服装替换为[图片2]中的服装。严格保持[图片1]中人物的五官、脸型、肤色、发型完全不变，不要重新生成面部；保持姿态、背景、光照不变。";
 
+/** 单次试穿最多接收的单品图数量见 src/lib/types（MAX_GARMENTS） */
+
+/**
+ * 按单品数量生成换装 Prompt。
+ * 参考图在 ImageSet 里排在 [图片2] 起、identity 固定最后，所以编号与上传顺序一致。
+ */
+export function buildTryonPrompt(garmentCount: number): string {
+  if (garmentCount <= 1) return TRYON_PROMPT;
+  const refs = Array.from({ length: garmentCount }, (_, i) => `[图片${i + 2}]`);
+  const list =
+    refs.length === 2 ? refs.join("和") : `${refs.slice(0, -1).join("、")}和${refs[refs.length - 1]}`;
+  return `将[图片1]中模特的服装替换为${list}中的单品组合（共 ${garmentCount} 件），按每张单品图的款式、颜色、版型分别替换并搭配，保持每件单品与图中一致。严格保持[图片1]中人物的五官、脸型、肤色、发型完全不变，不要重新生成面部；保持姿态、背景、光照不变。`;
+}
+
 /** ImageSet 参考图类型（官方支持值） */
 export type RefImageType =
   | "garment"

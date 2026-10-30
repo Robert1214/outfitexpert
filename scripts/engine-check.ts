@@ -1,6 +1,6 @@
 // 合身判断引擎逻辑检查（开发期手动跑：npx tsx scripts/engine-check.ts）
 import { canJudgeFit, judgeFit, lengthPositionHint } from "../src/lib/size-engine";
-import { validateBody, validateGarment, validateRequiredBody } from "../src/lib/validation";
+import { validateBody, validateGarment } from "../src/lib/validation";
 
 let failed = 0;
 
@@ -37,10 +37,9 @@ check("长度提示-常规", lengthPositionHint(58, 165), "常规长度：大致
 check("长度提示-短款", lengthPositionHint(50, 165), "短款：大致在腰线附近");
 check("长度提示-长款", lengthPositionHint(85, 165), "长款：大致到膝盖附近");
 
-// 身高、体重必填：未填 → 红字提示
-check("身高未填被拦下", validateRequiredBody({ height: "", weight: "50" }).map((e) => e.message), ["请填写身高"]);
-check("体重未填被拦下", validateRequiredBody({ height: "165", weight: "  " }).map((e) => e.message), ["请填写体重"]);
-check("身高体重都填了", validateRequiredBody({ height: "165", weight: "50" }).length, 0);
+// 尺寸全部选填（PRD v1.4）：什么都不填不报错，仍可出图
+check("尺寸全空不报错", validateBody({}).length, 0);
+check("衣服尺寸全空不报错", validateGarment({}).length, 0);
 
 // 腰围 20cm 明显不合理 → 拦下
 check("腰围20cm被拦下", validateBody({ waist: 20 }).some((e) => e.field === "waist"), true);

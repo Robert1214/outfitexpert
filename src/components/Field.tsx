@@ -8,16 +8,14 @@ interface Props {
   placeholder?: string;
   error?: string;
   hint?: string;
-  required?: boolean;
 }
 
-export default function Field({ label, unit, value, onChange, placeholder, error, hint, required }: Props) {
+export default function Field({ label, unit, value, onChange, placeholder, error, hint }: Props) {
   return (
     <div>
-      <label className="mb-1 block text-sm">
-        {required && <span className="mr-0.5 text-red-500">*</span>}
+      <label className="mb-1.5 block text-xs font-medium text-muted">
         {label}
-        {unit && <span className="ml-1 text-xs text-muted">{unit}</span>}
+        {unit && <span className="ml-1 text-[11px] font-normal text-muted/80">{unit}</span>}
       </label>
       <input
         type="number"
@@ -25,12 +23,15 @@ export default function Field({ label, unit, value, onChange, placeholder, error
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className={`w-full rounded-lg bg-card px-3 py-2 text-sm ring-1 outline-none transition-shadow focus:ring-2 focus:ring-accent/40 ${
-          error ? "ring-red-400" : "ring-line"
+        className={`w-full rounded-xl border bg-background/70 px-3 py-2.5 text-sm text-foreground outline-none transition focus:border-accent focus:bg-card focus:ring-2 focus:ring-accent/10 ${
+          error ? "border-danger/60" : "border-line"
         }`}
       />
-      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
-      {!error && hint && <p className="mt-1 text-xs text-muted">{hint}</p>}
+      {error ? (
+        <p className="mt-1.5 text-[11px] leading-4 text-danger">{error}</p>
+      ) : hint ? (
+        <p className="mt-1.5 text-[11px] leading-4 text-muted">{hint}</p>
+      ) : null}
     </div>
   );
 }

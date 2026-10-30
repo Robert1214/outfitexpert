@@ -5,6 +5,7 @@
 import { mps } from "tencentcloud-sdk-nodejs";
 import { TryonError } from "./errors";
 import type { TryonConfig } from "./config";
+import type { GarmentRefType } from "../types";
 
 const MpsClient = mps.v20190612.Client;
 
@@ -12,23 +13,53 @@ const MpsClient = mps.v20190612.Client;
 const TRYON_MODEL = "tryon-1.0-lite";
 /** 输出分辨率：1K（1K+flash 为当前选定配置，实测约 50 秒） */
 const OUTPUT_RESOLUTION = "1K";
-/** 换装指令：换装同时强约束五官不变，抑制面部被重绘 */
-export const TRYON_PROMPT =
-  "将[图片1]中模特的服装替换为[图片2]中的服装。严格保持[图片1]中人物的五官、脸型、肤色、发型完全不变，不要重新生成面部；保持姿态、背景、光照不变。";
+/** 面部保持约束：所有换装指令统一追加，抑制面部被重绘 */
+const FACE_PRESERVE_CLAUSE =
+  "严格保持[图片1]中人物的五官、脸型、肤色、发型完全不变，不要重新生成面部；保持姿态、背景、光照不变。";
 
-/** 单次试穿最多接收的单品图数量见 src/lib/types（MAX_GARMENTS） */
+/** 把 [图片N] 按顺序拼成「[图片2]、[图片3]」 */
+function refList(indices: number[]): string {
+  return indices.map((n) => `[图片${n}]`).join("、");
+}
 
 /**
- * 按单品数量生成换装 Prompt。
- * 参考图在 ImageSet 里排在 [图片2] 起、identity 固定最后，所以编号与上传顺序一致。
+ * 按单品类型生成换装 Prompt。
+ * 参考图在 ImageSet 里从 [图片2] 起、identity 固定最后，所以编号与上传顺序一致。
+ * - 衣服：替换服装
+ * - 配饰：佩戴（只参考款式/颜色，不复制参考图里的人物、脸、手、背景）
+ * - 鞋：替换鞋
  */
-export function buildTryonPrompt(garmentCount: number): string {
-  if (garmentCount <= 1) return TRYON_PROMPT;
-  const refs = Array.from({ length: garmentCount }, (_, i) => `[图片${i + 2}]`);
-  const list =
-    refs.length === 2 ? refs.join("和") : `${refs.slice(0, -1).join("、")}和${refs[refs.length - 1]}`;
-  return `将[图片1]中模特的服装替换为${list}中的单品组合（共 ${garmentCount} 件），按每张单品图的款式、颜色、版型分别替换并搭配，保持每件单品与图中一致。严格保持[图片1]中人物的五官、脸型、肤色、发型完全不变，不要重新生成面部；保持姿态、背景、光照不变。`;
+export function buildTryonPrompt(types: GarmentRefType[]): string {
+  const indices: Record<GarmentRefType, number[]> = {
+    garment: [],
+    accessories: [],
+    shoes: [],
+  };
+  types.forEach((t, i) => indices[t].push(i + 2));
+
+  const parts: string[] = [];
+  if (indices.garment.length > 0) {
+    parts.push(
+      `将[图片1]中模特的服装替换为${refList(indices.garment)}中的服装单品，保持款式/颜色/版型一致`
+    );
+  }
+  if (indices.accessories.length > 0) {
+    parts.push(
+      `让模特佩戴${refList(indices.accessories)}中的配饰，只参考配饰的款式和颜色，不要复制参考图中的人物、脸、手、背景`
+    );
+  }
+  if (indices.shoes.length > 0) {
+    parts.push(
+      `将[图片1]中模特的鞋替换为${refList(indices.shoes)}中的鞋，保持款式/颜色一致`
+    );
+  }
+
+  const body = parts.length > 0 ? `${parts.join("；")}。` : "";
+  return body + FACE_PRESERVE_CLAUSE;
 }
+
+/** 默认 Prompt（单件衣服），startTryonTask 未传 prompt 时使用 */
+export const TRYON_PROMPT = buildTryonPrompt(["garment"]);
 
 /** ImageSet 参考图类型（官方支持值） */
 export type RefImageType =

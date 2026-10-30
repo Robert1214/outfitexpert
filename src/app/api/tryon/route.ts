@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { runTryon } from "@/lib/tryon/run";
 import { dataUrlToBuffer, type ImagePayload } from "@/lib/tryon/image";
 import { buildTryonPrompt } from "@/lib/tryon/mps";
-import { MAX_GARMENTS } from "@/lib/types";
+import { GARMENT_REF_TYPES, MAX_GARMENTS, type GarmentRefType } from "@/lib/types";
 import { consumeDailyQuota } from "@/lib/tryon/rate-limit";
 import { httpStatus, TryonError, USER_MESSAGES } from "@/lib/tryon/errors";
 
@@ -24,8 +24,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: USER_MESSAGES["rate-limit"] }, { status: 429 });
   }
 
-  // 2. 解析请求体：人像 1 张，单品 1~4 张
-  let body: { personImage?: unknown; garmentImages?: unknown };
+  // 2. 解析请求体：人像 1 张，单品 1~4 张（可带每张的类型）
+  let body: { personImage?: unknown; garmentImages?: unknown; garmentTypes?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -54,13 +54,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "图片太大，请换一张更小的图片" }, { status: 400 });
   }
 
+  // 单品类型：可选；缺省全部按衣服处理。传了就必须与图片数量一致且是合法枚举
+  let garmentTypes: GarmentRefType[];
+  if (body.garmentTypes === undefined) {
+    garmentTypes = garmentPayloads.map(() => "garment");
+  } else if (
+    Array.isArray(body.garmentTypes) &&
+    body.garmentTypes.length === garmentPayloads.length &&
+    body.garmentTypes.every(
+      (t) => typeof t === "string" && (GARMENT_REF_TYPES as readonly string[]).includes(t)
+    )
+  ) {
+    garmentTypes = body.garmentTypes as GarmentRefType[];
+  } else {
+    return NextResponse.json({ error: USER_MESSAGES["bad-input"] }, { status: 400 });
+  }
+
   // 3. 执行换装（上传中转 → 发起任务 → 轮询 → 清理）
+  const refs = garmentPayloads.map((image, i) => ({ type: garmentTypes[i], image }));
   try {
-    const { imageUrl } = await runTryon(person, garmentPayloads, {
-      prompt: buildTryonPrompt(garmentPayloads.length),
+    const { imageUrl } = await runTryon(person, refs, {
+      prompt: buildTryonPrompt(garmentTypes),
     });
     // 追踪用：每次测试出了哪张结果图，与上传的单品图一一对应
-    console.log(`[tryon] 单品 ${garmentPayloads.length} 件，结果图: ${imageUrl}`);
+    console.log(`[tryon] 单品 ${refs.length} 件（${garmentTypes.join("/")}），结果图: ${imageUrl}`);
     return NextResponse.json({ imageUrl });
   } catch (e) {
     if (e instanceof TryonError) {

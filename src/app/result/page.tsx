@@ -48,10 +48,11 @@ export default function ResultPage() {
       const pending = getPendingTryon();
       const personImage = pending?.personImage ?? p.personImage;
       const garmentImages = pending?.garmentImages ?? p.garmentImages;
+      const garmentTypes = pending?.garmentTypes ?? p.garmentTypes;
       const res = await fetch("/api/tryon", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ personImage, garmentImages }),
+        body: JSON.stringify({ personImage, garmentImages, garmentTypes }),
         signal: controller.signal,
       });
       const data = (await res.json().catch(() => null)) as { imageUrl?: string; error?: string } | null;
@@ -86,6 +87,7 @@ export default function ResultPage() {
           ? {
               personImage: pending.personImage,
               garmentImages: pending.garmentImages,
+              garmentTypes: pending.garmentTypes,
               body: {},
               garment: {},
             }

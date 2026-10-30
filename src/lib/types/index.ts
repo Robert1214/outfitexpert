@@ -3,6 +3,17 @@ export type FitStyle = "紧身" | "合身" | "宽松";
 /** 单次试穿最多接收的单品图数量（PRD v1.4） */
 export const MAX_GARMENTS = 4;
 
+/** 单品类型（与 MPS ImageSet 的 Type 对应；客户端可安全引用，勿从 mps.ts 导入） */
+export const GARMENT_REF_TYPES = ["garment", "accessories", "shoes"] as const;
+export type GarmentRefType = (typeof GARMENT_REF_TYPES)[number];
+
+/** 单品类型中文名（前端下拉用） */
+export const GARMENT_REF_TYPE_LABEL: Record<GarmentRefType, string> = {
+  garment: "衣服",
+  accessories: "配饰",
+  shoes: "鞋",
+};
+
 /** 用户身体数据（全部选填，单位 cm / kg；PRD v1.4 起身高体重不再必填） */
 export interface PersonBody {
   height?: number;
@@ -25,6 +36,8 @@ export interface TryonPayload {
   personImage: string;
   /** 单品图，1~4 张，按上传顺序对应 [图片2]…[图片5] */
   garmentImages: string[];
+  /** 每张单品图的类型，与 garmentImages 一一对应（旧缓存缺省 garment） */
+  garmentTypes: GarmentRefType[];
   body: PersonBody;
   garment: GarmentSize;
 }

@@ -13,6 +13,7 @@ import { fileToRawDataUrl, savePayload } from "@/lib/storage";
 import {
   MAX_GARMENTS,
   type FitStyle,
+  type GarmentRefType,
   type GarmentSize,
   type PersonBody,
   type TryonPayload,
@@ -21,6 +22,7 @@ import { validateBody, validateGarment, type FieldError } from "@/lib/validation
 
 const emptyImages = () => Array<string | null>(MAX_GARMENTS).fill(null);
 const emptyFiles = () => Array<File | null>(MAX_GARMENTS).fill(null);
+const emptyTypes = () => Array<GarmentRefType>(MAX_GARMENTS).fill("garment");
 
 export default function HomePage() {
   const router = useRouter();
@@ -29,6 +31,8 @@ export default function HomePage() {
   const [personFile, setPersonFile] = useState<File | null>(null);
   const [garmentImages, setGarmentImages] = useState<(string | null)[]>(emptyImages);
   const [garmentFiles, setGarmentFiles] = useState<(File | null)[]>(emptyFiles);
+  // 每格单品类型，与图片按索引同步（默认衣服）
+  const [garmentTypes, setGarmentTypes] = useState<GarmentRefType[]>(emptyTypes);
   const [submitting, setSubmitting] = useState(false);
   const [body, setBody] = useState<Record<string, string>>({
     height: "",
@@ -55,6 +59,8 @@ export default function HomePage() {
     setGarmentImages((prev) => prev.map((item, i) => (i === index ? v : item)));
   const setGarmentFileAt = (index: number) => (f: File | null) =>
     setGarmentFiles((prev) => prev.map((item, i) => (i === index ? f : item)));
+  const setGarmentTypeAt = (index: number) => (t: GarmentRefType) =>
+    setGarmentTypes((prev) => prev.map((item, i) => (i === index ? t : item)));
 
   const toNum = (v: string): number | undefined => {
     const t = v.trim();
@@ -77,8 +83,12 @@ export default function HomePage() {
       return;
     }
     const picked = garmentImages
-      .map((img, i) => ({ img, file: garmentFiles[i] ?? null }))
-      .filter((x): x is { img: string; file: File | null } => x.img !== null);
+      .map((img, i) => ({
+        img,
+        file: garmentFiles[i] ?? null,
+        type: garmentTypes[i] ?? "garment",
+      }))
+      .filter((x): x is { img: string; file: File | null; type: GarmentRefType } => x.img !== null);
     if (picked.length === 0) {
       setSubmitError("请至少上传 1 张单品图");
       return;
@@ -111,6 +121,7 @@ export default function HomePage() {
     const payload: TryonPayload = {
       personImage,
       garmentImages: picked.map((x) => x.img),
+      garmentTypes: picked.map((x) => x.type),
       body: bodyData,
       garment: garmentData,
     };
@@ -122,7 +133,11 @@ export default function HomePage() {
         personFile ? fileToRawDataUrl(personFile) : Promise.resolve(personImage),
         ...picked.map((x) => (x.file ? fileToRawDataUrl(x.file) : Promise.resolve(x.img))),
       ]);
-      setPendingTryon({ personImage: images[0], garmentImages: images.slice(1) });
+      setPendingTryon({
+        personImage: images[0],
+        garmentImages: images.slice(1),
+        garmentTypes: picked.map((x) => x.type),
+      });
       savePayload(payload);
       router.push("/result");
     } catch {
@@ -179,7 +194,9 @@ export default function HomePage() {
                     key={index}
                     index={index}
                     value={value}
+                    type={garmentTypes[index]}
                     onChange={setGarmentAt(index)}
+                    onTypeChange={setGarmentTypeAt(index)}
                     onFile={setGarmentFileAt(index)}
                   />
                 ))}

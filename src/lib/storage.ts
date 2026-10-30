@@ -1,4 +1,4 @@
-import type { TryonPayload } from "@/lib/types";
+import { GARMENT_REF_TYPES, type GarmentRefType, type TryonPayload } from "@/lib/types";
 
 /**
  * 数据传递：图片压缩后存浏览器 localStorage，结果页从 localStorage 读取
@@ -81,6 +81,14 @@ export function loadPayload(): TryonPayload | null {
       parsed.garmentImages = [parsed.garmentImage];
     }
     if (!Array.isArray(parsed.garmentImages) || parsed.garmentImages.length === 0) return null;
+    // 旧缓存没有 garmentTypes：逐张缺省为 garment；非法值同样回退 garment
+    const rawTypes: unknown[] = Array.isArray(parsed.garmentTypes) ? parsed.garmentTypes : [];
+    parsed.garmentTypes = parsed.garmentImages.map((_, i) => {
+      const t = rawTypes[i];
+      return typeof t === "string" && (GARMENT_REF_TYPES as readonly string[]).includes(t)
+        ? (t as GarmentRefType)
+        : "garment";
+    });
     delete parsed.garmentImage;
     return parsed;
   } catch {

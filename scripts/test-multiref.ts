@@ -1,11 +1,10 @@
 /**
- * 多参考图能力边界测试（研究用，每次调用消耗 MPS 计费额度：flash 1K 约 2.12 元/张）。
+ * 多参考图能力边界测试（研究用，每次调用消耗 MPS 计费额度：lite 1K 约 1.00 元/张）。
  * 需要 test-assets 下准备以下图片（png / jpg / webp 均可）：
- *   top.*        只有上衣的服饰图
- *   pants.*      只有裤子的服饰图
- *   accessory.*  配饰图（帽子或包）
- *   set.*        上衣 + 裤子的套装图
- * 运行：npx tsx --env-file=.env.local scripts/test-multiref.ts [1|2|3|all] [人像图]
+ *   top.*          只有上衣的服饰图
+ *   pants.*        只有裤子的服饰图
+ *   accessories.*  配饰图（帽子或包）
+ * 运行：npx tsx --env-file=.env.local scripts/test-multiref.ts [1|2|4|all] [人像图]
  *   默认：全部场景、人像 new.jpg。结果图保存为 test-assets/multi-<场景号>.jpg
  */
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
@@ -54,21 +53,25 @@ const SCENARIOS: Scenario[] = [
   {
     id: 2,
     name: "上衣 + 配饰（garment + accessories）",
-    need: ["top", "accessory"],
+    need: ["top", "accessories"],
     build: (f) => [
       { type: "garment", image: f.top },
-      { type: "accessories", image: f.accessory },
+      { type: "accessories", image: f.accessories },
     ],
     prompt:
       "将[图片1]中模特的服装替换为[图片2]中的上衣，并让模特佩戴[图片3]中的配饰，保持人物形象与姿态自然",
   },
   {
-    id: 3,
-    name: "套装图只换上衣（单条 garment + 局部换装 Prompt）",
-    need: ["set"],
-    build: (f) => [{ type: "garment", image: f.set }],
+    id: 4,
+    name: "三张单品图同时换：上衣 + 裤子 + 配饰（garment×2 + accessories）",
+    need: ["top", "pants", "accessories"],
+    build: (f) => [
+      { type: "garment", image: f.top },
+      { type: "garment", image: f.pants },
+      { type: "accessories", image: f.accessories },
+    ],
     prompt:
-      "只将[图片1]中模特的上衣替换为[图片2]套装图中的上衣，保留[图片1]中模特原有的裤子不变，保持人物形象与姿态自然",
+      "将[图片1]中模特的服装替换为[图片2]中的上衣和[图片3]中的裤子，并让模特佩戴[图片4]中的配饰，保持人物形象与姿态自然",
   },
 ];
 
@@ -88,7 +91,7 @@ async function main() {
   console.log(`人像：${personName}${pd ? `（${pd.width}x${pd.height}）` : ""}`);
 
   const files: Record<string, ImagePayload> = {};
-  for (const key of ["top", "pants", "accessory", "set"]) {
+  for (const key of ["top", "pants", "accessories"]) {
     const img = load(key);
     if (img) files[key] = img;
   }

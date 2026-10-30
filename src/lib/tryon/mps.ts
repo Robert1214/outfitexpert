@@ -8,8 +8,8 @@ import type { TryonConfig } from "./config";
 
 const MpsClient = mps.v20190612.Client;
 
-/** 换装模型：tryon-1.0-flash（2026-10-30 A/B 实测：效果优于 lite，选定档位） */
-const TRYON_MODEL = "tryon-1.0-flash";
+/** 换装模型：tryon-1.0-lite（2026-10-30 用户定档：lite 效果已够用，单价 1.00 元/张） */
+const TRYON_MODEL = "tryon-1.0-lite";
 /** 输出分辨率：1K（1K+flash 为当前选定配置，实测约 50 秒） */
 const OUTPUT_RESOLUTION = "1K";
 /** 换装指令：把模特原服装替换为参考服饰 */

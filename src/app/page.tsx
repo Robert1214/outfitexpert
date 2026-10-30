@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Fugaz_One } from "next/font/google";
+import { Germania_One } from "next/font/google";
 import Field from "@/components/Field";
 import GarmentSlot from "@/components/GarmentSlot";
 import HintTip from "@/components/HintTip";
@@ -22,8 +22,8 @@ import {
 } from "@/lib/types";
 import { validateBody, validateGarment, type FieldError } from "@/lib/validation";
 
-/** 品牌字标：Fugaz One（单字重 400 的展示字体；构建时自托管，运行时不依赖外网） */
-const brandFont = Fugaz_One({ subsets: ["latin"], weight: "400", display: "swap" });
+/** 品牌字标：Germania One（单字重 400 的展示字体；构建时自托管，运行时不依赖外网） */
+const brandFont = Germania_One({ subsets: ["latin"], weight: "400", display: "swap" });
 
 const emptyImages = () => Array<string | null>(MAX_GARMENTS).fill(null);
 const emptyFiles = () => Array<File | null>(MAX_GARMENTS).fill(null);

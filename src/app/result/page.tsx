@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { judgeFit, lengthPositionHint } from "@/lib/size-engine";
 import { getPendingTryon, setPendingTryon } from "@/lib/pending-tryon";
 import { clearPayload, loadPayload } from "@/lib/storage";
@@ -36,11 +36,30 @@ export default function ResultPage() {
   const [elapsed, setElapsed] = useState(0);
   // 悬停看原图（桌面）/ 点按切换（手机）
   const [showOriginal, setShowOriginal] = useState(false);
+  // 并发保护：同一时间只允许一个请求写 state；新请求会先中止旧请求
+  const requestIdRef = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
 
   const startTryon = useCallback(async (p: TryonPayload) => {
-    const t0 = Date.now();
-    const timer = setInterval(() => setElapsed(Math.floor((Date.now() - t0) / 1000)), 1000);
+    // 让旧请求的 setState 失效，再中止它，避免两个请求同时写状态
+    const requestId = ++requestIdRef.current;
+    abortRef.current?.abort();
     const controller = new AbortController();
+    abortRef.current = controller;
+
+    // 统一重置：先回到 loading 并清空旧结果，避免旧图闪现
+    setStage("loading");
+    setResultImage(null);
+    setErrorMsg(null);
+    setElapsed(0);
+    setShowOriginal(false);
+
+    const t0 = Date.now();
+    const timer = setInterval(() => {
+      if (requestId === requestIdRef.current) {
+        setElapsed(Math.floor((Date.now() - t0) / 1000));
+      }
+    }, 1000);
     const abortTimer = setTimeout(() => controller.abort(), CLIENT_TIMEOUT_MS);
     try {
       // 上传给后端优先用内存里的高清图；刷新页面内存丢失时
@@ -62,15 +81,18 @@ export default function ResultPage() {
       if (!data?.imageUrl) {
         throw new Error("生成失败，请重试");
       }
+      if (requestId !== requestIdRef.current) return; // 已被新请求取代
       setResultImage(data.imageUrl);
       setStage("done");
     } catch (e) {
+      if (requestId !== requestIdRef.current) return; // 旧请求的失败不覆盖新状态
       const aborted = e instanceof DOMException && e.name === "AbortError";
       setErrorMsg(aborted ? "生成超时，请重试" : e instanceof Error ? e.message : "生成失败，请重试");
       setStage("error");
     } finally {
       clearTimeout(abortTimer);
       clearInterval(timer);
+      if (requestId === requestIdRef.current) abortRef.current = null;
     }
   }, []);
 
@@ -112,19 +134,23 @@ export default function ResultPage() {
     return lengthPositionHint(payload.garment.length, payload.body.height);
   }, [payload]);
 
-  function restart() {
+  /** 重新上传：清空本次数据并回首页 */
+  function reset() {
     clearPayload();
     setPendingTryon(null);
     router.push("/");
   }
 
-  function retry() {
-    if (!payload) return;
-    setStage("loading");
-    setErrorMsg(null);
-    setElapsed(0);
-    setShowOriginal(false);
+  /** 原地重生成：复用当前 payload / pending（含 garmentTypes），不重新读表单或上传 */
+  function regenerate() {
+    if (!payload || stage === "loading") return;
+    if (!window.confirm("重新生成会再消耗 1 次额度，继续？")) return;
     void startTryon(payload);
+  }
+
+  function retry() {
+    if (!payload || stage === "loading") return;
+    void startTryon(payload); // startTryon 内部会重置 loading / 旧结果
   }
 
   if (stage === "loading") {
@@ -172,7 +198,7 @@ export default function ResultPage() {
             重试
           </button>
           <button
-            onClick={restart}
+            onClick={reset}
             className="rounded-full px-6 py-2.5 text-sm font-semibold text-muted ring-1 ring-line transition hover:text-foreground"
           >
             返回首页
@@ -194,12 +220,20 @@ export default function ResultPage() {
           <p className="text-[11px] uppercase tracking-[0.3em] text-muted">Result</p>
           <h1 className="mt-1 font-serif text-2xl font-semibold text-accent">试穿结果</h1>
         </div>
-        <button
-          onClick={restart}
-          className="text-sm font-medium text-accent underline-offset-2 transition hover:underline"
-        >
-          再来一次 →
-        </button>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={regenerate}
+            className="text-sm font-medium text-accent underline-offset-2 transition hover:underline"
+          >
+            再来一次
+          </button>
+          <button
+            onClick={reset}
+            className="text-sm font-medium text-muted underline-offset-2 transition hover:text-foreground hover:underline"
+          >
+            重新上传
+          </button>
+        </div>
       </header>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] lg:items-start lg:gap-6">

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { judgeFit, lengthPositionHint } from "@/lib/size-engine";
+import { getPendingTryon, setPendingTryon } from "@/lib/pending-tryon";
 import { clearPayload, loadPayload } from "@/lib/storage";
 import type { TryonPayload } from "@/lib/types";
 
@@ -40,10 +41,15 @@ export default function ResultPage() {
     const controller = new AbortController();
     const abortTimer = setTimeout(() => controller.abort(), CLIENT_TIMEOUT_MS);
     try {
+      // 上传给后端优先用内存里的高清图（最长边 2048）；刷新页面内存丢失时
+      // 退回 localStorage 的压缩版，功能不受影响
+      const pending = getPendingTryon();
+      const personImage = pending?.personImage ?? p.personImage;
+      const garmentImage = pending?.garmentImage ?? p.garmentImage;
       const res = await fetch("/api/tryon", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ personImage: p.personImage, garmentImage: p.garmentImage }),
+        body: JSON.stringify({ personImage, garmentImage }),
         signal: controller.signal,
       });
       const data = (await res.json().catch(() => null)) as { imageUrl?: string; error?: string } | null;
@@ -91,6 +97,7 @@ export default function ResultPage() {
 
   function restart() {
     clearPayload();
+    setPendingTryon(null);
     router.push("/");
   }
 

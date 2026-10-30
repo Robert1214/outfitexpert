@@ -1,14 +1,28 @@
 import type { TryonPayload } from "@/lib/types";
 
 /**
- * M1 数据传递：图片与表单数据压缩后存浏览器 localStorage，
- * 结果页从 localStorage 读取。不经过服务器（M2 接后端后替换）。
+ * 数据传递：图片压缩后存浏览器 localStorage，结果页从 localStorage 读取
+ * （表单数据 + 压缩图回显兜底）。上传给后端的高清图不经过这里，
+ * 走内存通道 src/lib/pending-tryon.ts。
  */
 
 const KEY = "outfitexpert:payload";
 
-/** 把图片压缩成 data URL（降尺寸降画质，避免撑爆 localStorage） */
-export function fileToDataUrl(file: File, maxDim = 900, quality = 0.85): Promise<string> {
+export interface ImageEncodeOptions {
+  /** 最长边上限（px），超出等比缩小。默认 900：存 localStorage 回显用，别改大（会超 5MB 配额） */
+  maxDim?: number;
+  /** JPEG 压缩质量 0~1，默认 0.85 */
+  quality?: number;
+}
+
+/**
+ * 把图片压缩成 data URL。
+ * 两条路各取所需：localStorage 回显用默认 900px 压缩版；上传给后端另调
+ * { maxDim: 2048, quality: 0.92 } 拿高清版（仅走内存，见 pending-tryon.ts）。
+ */
+export function fileToDataUrl(file: File, opts: ImageEncodeOptions = {}): Promise<string> {
+  const maxDim = opts.maxDim ?? 900;
+  const quality = opts.quality ?? 0.85;
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const img = new Image();

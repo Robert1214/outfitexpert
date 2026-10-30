@@ -8,6 +8,8 @@ interface Props {
   kind: "person" | "garment";
   value: string | null;
   onChange: (v: string | null) => void;
+  /** 原始文件（未压缩）：首页提交时用它生成高清版（最长边 2048）传给后端 */
+  onFile?: (f: File | null) => void;
 }
 
 async function imageSize(src: string): Promise<{ width: number; height: number } | null> {
@@ -19,7 +21,7 @@ async function imageSize(src: string): Promise<{ width: number; height: number }
   });
 }
 
-export default function UploadBox({ kind, value, onChange }: Props) {
+export default function UploadBox({ kind, value, onChange, onFile }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -55,6 +57,7 @@ export default function UploadBox({ kind, value, onChange }: Props) {
         return;
       }
       onChange(dataUrl);
+      onFile?.(file);
     } catch (e) {
       setError(e instanceof Error ? e.message : "图片处理失败，请换一张");
     } finally {
@@ -64,6 +67,7 @@ export default function UploadBox({ kind, value, onChange }: Props) {
 
   function remove() {
     onChange(null);
+    onFile?.(null);
     setError(null);
   }
 

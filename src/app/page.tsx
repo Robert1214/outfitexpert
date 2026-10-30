@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import Field from "@/components/Field";
 import SectionCard from "@/components/SectionCard";
 import UploadBox from "@/components/UploadBox";
-import { savePayload } from "@/lib/storage";
+import { setPendingTryon } from "@/lib/pending-tryon";
+import { fileToDataUrl, savePayload } from "@/lib/storage";
 import type { FitStyle, GarmentSize, PersonBody, TryonPayload } from "@/lib/types";
 import { validateBody, validateGarment, validateRequiredBody, type FieldError } from "@/lib/validation";
 
@@ -14,6 +15,10 @@ export default function HomePage() {
   const router = useRouter();
   const [personImage, setPersonImage] = useState<string | null>(null);
   const [garmentImage, setGarmentImage] = useState<string | null>(null);
+  // 原始文件：提交时生成高清版（最长边 2048）传给后端，localStorage 仍存压缩版
+  const [personFile, setPersonFile] = useState<File | null>(null);
+  const [garmentFile, setGarmentFile] = useState<File | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [body, setBody] = useState<Record<string, string>>({
     height: "",
     weight: "",
@@ -45,9 +50,10 @@ export default function HomePage() {
   const errorFor = (errors: FieldError[], field: string) =>
     errors.find((e) => e.field === field)?.message;
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitError(null);
+    if (submitting) return;
     if (!personImage) {
       setSubmitError("请先上传你的人像照");
       return;
@@ -94,8 +100,24 @@ export default function HomePage() {
       body: bodyData,
       garment: garmentData,
     };
-    savePayload(payload);
-    router.push("/result");
+
+    // 高清版（最长边 2048、q0.92）只走内存传给后端；localStorage 仍存压缩版
+    const pImg = personImage;
+    const gImg = garmentImage;
+    setSubmitting(true);
+    try {
+      const [personHi, garmentHi] = await Promise.all([
+        personFile ? fileToDataUrl(personFile, { maxDim: 2048, quality: 0.92 }) : pImg,
+        garmentFile ? fileToDataUrl(garmentFile, { maxDim: 2048, quality: 0.92 }) : gImg,
+      ]);
+      setPendingTryon({ personImage: personHi, garmentImage: garmentHi });
+      savePayload(payload);
+      router.push("/result");
+    } catch {
+      setSubmitError("图片处理失败，请重新上传后再试");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -108,8 +130,8 @@ export default function HomePage() {
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
         <SectionCard title="上传照片">
           <div className="flex flex-col gap-5">
-            <UploadBox kind="person" value={personImage} onChange={setPersonImage} />
-            <UploadBox kind="garment" value={garmentImage} onChange={setGarmentImage} />
+            <UploadBox kind="person" value={personImage} onChange={setPersonImage} onFile={setPersonFile} />
+            <UploadBox kind="garment" value={garmentImage} onChange={setGarmentImage} onFile={setGarmentFile} />
           </div>
         </SectionCard>
 
@@ -214,9 +236,10 @@ export default function HomePage() {
 
         <button
           type="submit"
-          className="w-full rounded-full bg-accent py-3.5 text-base font-semibold text-white shadow-md transition hover:bg-accent-deep active:scale-[0.99]"
+          disabled={submitting}
+          className="w-full rounded-full bg-accent py-3.5 text-base font-semibold text-white shadow-md transition hover:bg-accent-deep active:scale-[0.99] disabled:opacity-60"
         >
-          开始试穿
+          {submitting ? "处理中…" : "开始试穿"}
         </button>
 
         <p className="text-center text-xs text-muted">

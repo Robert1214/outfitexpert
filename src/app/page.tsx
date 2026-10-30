@@ -155,18 +155,10 @@ export default function HomePage() {
     <div className="flex flex-col gap-6 pb-4 pt-6 lg:pt-10">
       <header className="flex flex-col gap-5 border-b border-line pb-6 lg:flex-row lg:items-end lg:justify-between lg:pb-8">
         <div>
-          <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-md bg-accent font-serif text-xl leading-none text-white">
-              试
-            </span>
-            <p className="text-[11px] font-medium uppercase tracking-[0.35em] text-muted">
-              Outfit Expert
-            </p>
-          </div>
-          <h1 className="mt-3 font-serif text-3xl font-semibold tracking-tight text-accent lg:text-[2.75rem] lg:leading-none">
-            试穿助手
-          </h1>
-          <p className="mt-3 text-sm text-muted lg:text-base">下单前，先看看自己穿上的美貌</p>
+          <p className="text-[11px] font-medium uppercase tracking-[0.35em] text-muted">
+            Outfit Expert
+          </p>
+          <p className="mt-2 text-sm text-muted lg:text-base">下单前，先看看自己穿上的美貌</p>
         </div>
         <div className="flex flex-col gap-1 text-xs leading-5 text-muted lg:items-end lg:text-right">
           <p>人像 + 最多 4 件单品，约 60 秒出效果图</p>

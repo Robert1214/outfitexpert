@@ -9,6 +9,7 @@ import HintTip from "@/components/HintTip";
 import SectionCard from "@/components/SectionCard";
 import UploadBox from "@/components/UploadBox";
 import { setPendingTryon } from "@/lib/pending-tryon";
+import { clearInflight, clearResultCache } from "@/lib/result-cache";
 import { fileToRawDataUrl, savePayload } from "@/lib/storage";
 import {
   MAX_GARMENTS,
@@ -133,6 +134,9 @@ export default function HomePage() {
         personFile ? fileToRawDataUrl(personFile) : Promise.resolve(personImage),
         ...picked.map((x) => (x.file ? fileToRawDataUrl(x.file) : Promise.resolve(x.img))),
       ]);
+      // 新提交：旧结果缓存与未完成标记都失效
+      clearResultCache();
+      clearInflight();
       setPendingTryon({
         personImage: images[0],
         garmentImages: images.slice(1),

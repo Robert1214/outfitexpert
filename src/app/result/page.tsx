@@ -5,6 +5,16 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { judgeFit, lengthPositionHint } from "@/lib/size-engine";
 import { getPendingTryon, setPendingTryon } from "@/lib/pending-tryon";
+import {
+  clearInflight,
+  clearResultCache,
+  isResultCacheFresh,
+  loadInflight,
+  loadResultCache,
+  payloadSignature,
+  saveInflight,
+  saveResultCache,
+} from "@/lib/result-cache";
 import { clearPayload, loadPayload } from "@/lib/storage";
 import type { TryonPayload } from "@/lib/types";
 
@@ -24,7 +34,7 @@ const DIRECTION_TEXT: Record<string, string> = {
 /** 前端兜底超时：略大于后端轮询上限（90 秒）+ 上传耗时 */
 const CLIENT_TIMEOUT_MS = 150_000;
 
-type Stage = "loading" | "missing" | "error" | "done";
+type Stage = "loading" | "missing" | "error" | "done" | "confirm";
 
 export default function ResultPage() {
   const router = useRouter();
@@ -54,6 +64,10 @@ export default function ResultPage() {
     setElapsed(0);
     setShowOriginal(false);
 
+    // 记录进行中的请求：刷新页面时据此提示，不自动重复扣费
+    const signature = payloadSignature(p);
+    saveInflight({ signature, startedAt: Date.now() });
+
     const t0 = Date.now();
     const timer = setInterval(() => {
       if (requestId === requestIdRef.current) {
@@ -82,6 +96,8 @@ export default function ResultPage() {
         throw new Error("生成失败，请重试");
       }
       if (requestId !== requestIdRef.current) return; // 已被新请求取代
+      // 写结果缓存：刷新页面直接复用，避免重复扣费
+      saveResultCache({ imageUrl: data.imageUrl, createdAt: Date.now(), signature });
       setResultImage(data.imageUrl);
       setStage("done");
     } catch (e) {
@@ -92,7 +108,10 @@ export default function ResultPage() {
     } finally {
       clearTimeout(abortTimer);
       clearInterval(timer);
-      if (requestId === requestIdRef.current) abortRef.current = null;
+      if (requestId === requestIdRef.current) {
+        abortRef.current = null;
+        clearInflight();
+      }
     }
   }, []);
 
@@ -119,6 +138,23 @@ export default function ResultPage() {
         setStage("missing");
         return;
       }
+
+      const signature = payloadSignature(p);
+      const cache = loadResultCache();
+      if (isResultCacheFresh(cache, signature)) {
+        // 55 分钟内刷新：直接用缓存图，不再调用 MPS
+        setResultImage(cache.imageUrl);
+        setStage("done");
+        return;
+      }
+
+      // 没有可用缓存，但上次生成可能还在服务端跑：先让用户确认，不自动扣费
+      const inflight = loadInflight();
+      if (inflight && inflight.signature === signature) {
+        setStage("confirm");
+        return;
+      }
+
       void startTryon(p);
     }, 0);
     return () => clearTimeout(t);
@@ -134,10 +170,12 @@ export default function ResultPage() {
     return lengthPositionHint(payload.garment.length, payload.body.height);
   }, [payload]);
 
-  /** 重新上传：清空本次数据并回首页 */
+  /** 重新上传：清空本次数据、结果缓存与未完成标记，回首页 */
   function reset() {
     clearPayload();
     setPendingTryon(null);
+    clearResultCache();
+    clearInflight();
     router.push("/");
   }
 
@@ -145,12 +183,31 @@ export default function ResultPage() {
   function regenerate() {
     if (!payload || stage === "loading") return;
     if (!window.confirm("重新生成会再消耗 1 次额度，继续？")) return;
+    clearResultCache();
+    clearInflight();
+    void startTryon(payload);
+  }
+
+  /** 确认页点「重新生成」：确认页本身就是确认，不再弹窗 */
+  function regenerateFromConfirm() {
+    if (!payload) return;
+    clearResultCache();
+    clearInflight();
     void startTryon(payload);
   }
 
   function retry() {
     if (!payload || stage === "loading") return;
     void startTryon(payload); // startTryon 内部会重置 loading / 旧结果
+  }
+
+  /** 结果图加载失败（多见于缓存链接过期）：清缓存并提示，不自动扣费 */
+  function handleResultImageError() {
+    clearResultCache();
+    clearInflight();
+    setResultImage(null);
+    setErrorMsg("结果已过期，请重新生成");
+    setStage("error");
   }
 
   if (stage === "loading") {
@@ -202,6 +259,32 @@ export default function ResultPage() {
             className="rounded-full px-6 py-2.5 text-sm font-semibold text-muted ring-1 ring-line transition hover:text-foreground"
           >
             返回首页
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (stage === "confirm") {
+    return (
+      <div className="flex min-h-[70vh] flex-col items-center justify-center gap-4 text-center">
+        <p className="text-4xl">⏳</p>
+        <p className="text-sm font-medium">上次生成可能未完成</p>
+        <p className="max-w-sm text-xs leading-5 text-muted">
+          上次生成可能已经消耗 1 次额度；重新生成会再消耗 1 次额度。
+        </p>
+        <div className="flex gap-3">
+          <button
+            onClick={regenerateFromConfirm}
+            className="rounded-full bg-accent px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-accent-deep"
+          >
+            重新生成
+          </button>
+          <button
+            onClick={reset}
+            className="rounded-full px-6 py-2.5 text-sm font-semibold text-muted ring-1 ring-line transition hover:text-foreground"
+          >
+            回首页
           </button>
         </div>
       </div>
@@ -260,6 +343,7 @@ export default function ResultPage() {
             <img
               src={resultImage ?? undefined}
               alt="AI 试穿效果图"
+              onError={handleResultImageError}
               className={`block max-h-[70vh] w-full object-contain transition-opacity duration-200 lg:max-h-[78vh] ${
                 showOriginal ? "opacity-0" : "opacity-100"
               }`}

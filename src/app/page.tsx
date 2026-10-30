@@ -155,7 +155,7 @@ export default function HomePage() {
     <div className="flex flex-col gap-6 pb-4 pt-6 lg:pt-10">
       <header className="flex flex-col gap-5 border-b border-line pb-6 lg:flex-row lg:items-end lg:justify-between lg:pb-8">
         <div>
-          <p className="text-[11px] font-medium uppercase tracking-[0.35em] text-muted">
+          <p className="text-2xl font-semibold uppercase leading-none tracking-[0.2em] text-accent lg:text-3xl">
             Outfit Expert
           </p>
           <p className="mt-2 text-sm text-muted lg:text-base">下单前，先看看自己穿上的美貌</p>

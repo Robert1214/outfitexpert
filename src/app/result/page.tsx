@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { judgeFit, lengthPositionHint } from "@/lib/size-engine";
 import { clearPayload, loadPayload } from "@/lib/storage";
 import type { TryonPayload } from "@/lib/types";
@@ -20,20 +20,64 @@ const DIRECTION_TEXT: Record<string, string> = {
   down: "建议看小一档",
 };
 
+/** 前端兜底超时：略大于后端轮询上限（90 秒）+ 上传耗时 */
+const CLIENT_TIMEOUT_MS = 150_000;
+
+type Stage = "loading" | "missing" | "error" | "done";
+
 export default function ResultPage() {
   const router = useRouter();
   // 首屏统一渲染「生成中」，服务器/浏览器一致，避免水合不一致
-  const [stage, setStage] = useState<"loading" | "done">("loading");
+  const [stage, setStage] = useState<Stage>("loading");
   const [payload, setPayload] = useState<TryonPayload | null>(null);
+  const [resultImage, setResultImage] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [elapsed, setElapsed] = useState(0);
 
-  useEffect(() => {
-    // M1 演示：模拟出图等待；M2 换成真实接口（20~60 秒）
-    const t = setTimeout(() => {
-      setPayload(loadPayload());
+  const startTryon = useCallback(async (p: TryonPayload) => {
+    const t0 = Date.now();
+    const timer = setInterval(() => setElapsed(Math.floor((Date.now() - t0) / 1000)), 1000);
+    const controller = new AbortController();
+    const abortTimer = setTimeout(() => controller.abort(), CLIENT_TIMEOUT_MS);
+    try {
+      const res = await fetch("/api/tryon", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ personImage: p.personImage, garmentImage: p.garmentImage }),
+        signal: controller.signal,
+      });
+      const data = (await res.json().catch(() => null)) as { imageUrl?: string; error?: string } | null;
+      if (!res.ok) {
+        throw new Error(data?.error || "生成失败，请重试");
+      }
+      if (!data?.imageUrl) {
+        throw new Error("生成失败，请重试");
+      }
+      setResultImage(data.imageUrl);
       setStage("done");
-    }, 2200);
-    return () => clearTimeout(t);
+    } catch (e) {
+      const aborted = e instanceof DOMException && e.name === "AbortError";
+      setErrorMsg(aborted ? "生成超时，请重试" : e instanceof Error ? e.message : "生成失败，请重试");
+      setStage("error");
+    } finally {
+      clearTimeout(abortTimer);
+      clearInterval(timer);
+    }
   }, []);
+
+  // 客户端才读 localStorage（SSR 没有 localStorage），读完后立即发起试穿
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const p = loadPayload();
+      setPayload(p);
+      if (!p) {
+        setStage("missing");
+        return;
+      }
+      void startTryon(p);
+    }, 0);
+    return () => clearTimeout(t);
+  }, [startTryon]);
 
   // 合身判断与长度提示相互独立（PRD v1.1 数据依赖表）
   const fitAdvice = useMemo(
@@ -50,17 +94,28 @@ export default function ResultPage() {
     router.push("/");
   }
 
+  function retry() {
+    if (!payload) return;
+    setStage("loading");
+    setErrorMsg(null);
+    setElapsed(0);
+    void startTryon(payload);
+  }
+
   if (stage === "loading") {
     return (
       <div className="flex flex-col items-center gap-3 py-28 text-center">
         <div className="h-10 w-10 animate-spin rounded-full border-4 border-line border-t-accent" />
         <p className="text-sm font-medium">AI 正在为你试穿…</p>
-        <p className="text-xs text-muted">演示模式约 2 秒；接入真实服务后约 20~60 秒</p>
+        <p className="text-xs text-muted">
+          通常需要 20~60 秒{elapsed > 5 ? `，已等待 ${elapsed} 秒` : ""}
+        </p>
+        <p className="text-xs text-muted">期间请不要关闭页面</p>
       </div>
     );
   }
 
-  if (!payload) {
+  if (stage === "missing") {
     return (
       <div className="flex flex-col items-center gap-4 py-24 text-center">
         <p className="text-4xl">🤷</p>
@@ -74,6 +129,32 @@ export default function ResultPage() {
       </div>
     );
   }
+
+  if (stage === "error") {
+    return (
+      <div className="flex flex-col items-center gap-4 py-24 text-center">
+        <p className="text-4xl">😢</p>
+        <p className="text-sm font-medium">生成失败，请重试</p>
+        <p className="text-xs text-muted">{errorMsg}</p>
+        <div className="flex gap-3">
+          <button
+            onClick={retry}
+            className="rounded-full bg-accent px-6 py-2.5 text-sm font-semibold text-white hover:bg-accent-deep"
+          >
+            重试
+          </button>
+          <button
+            onClick={restart}
+            className="rounded-full px-6 py-2.5 text-sm font-semibold text-muted ring-1 ring-line hover:text-foreground"
+          >
+            返回首页
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!payload) return null; // 理论不可达，防御
 
   return (
     <div className="flex flex-col gap-5 py-6">
@@ -90,7 +171,11 @@ export default function ResultPage() {
       <section className="overflow-hidden rounded-2xl bg-card ring-1 ring-line">
         <div className="relative">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/fake-result.svg" alt="试穿效果图（占位演示）" className="w-full" />
+          <img
+            src={resultImage ?? undefined}
+            alt="AI 试穿效果图"
+            className="w-full"
+          />
           {!fitAdvice && (
             <span className="absolute left-2 top-2 rounded-lg bg-black/65 px-2.5 py-1 text-xs text-white">
               无尺码数据，请以实物为准
@@ -101,8 +186,8 @@ export default function ResultPage() {
           </span>
         </div>
         <p className="border-t border-line px-4 py-3 text-xs leading-5 text-muted">
-          效果图仅示意颜色、版型、气质和大致长度（人像为半身 / 大头照时，效果图可能只呈现上半身）；精确合身度请以合身判断为准。M1
-          演示图，尚未接入真实试穿服务。
+          效果图仅示意颜色、版型、气质和大致长度（人像为半身 / 大头照时，效果图可能只呈现上半身）；精确合身度请以合身判断为准。
+          结果图链接约 1 小时内有效，请及时保存。
         </p>
       </section>
 
@@ -161,7 +246,7 @@ export default function ResultPage() {
       )}
 
       <p className="text-center text-xs text-muted">
-        本次数据仅保存在你的浏览器里（未上传服务器），
+        本次数据仅保存在你的浏览器里，图片仅发送给腾讯云生成效果图，
         <Link href="/privacy" className="text-accent underline underline-offset-2">
           查看隐私说明
         </Link>

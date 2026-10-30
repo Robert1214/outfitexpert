@@ -23,7 +23,8 @@ export default function PrivacyPage() {
       <section className="rounded-2xl bg-card p-4 ring-1 ring-line">
         <h2 className="text-base font-semibold">数据怎么用</h2>
         <ul className="mt-2 flex list-disc flex-col gap-1 pl-5 text-sm leading-6 text-muted">
-          <li>仅用于生成试穿效果图和计算合身判断</li>
+          <li>生成试穿效果图：人像照和衣服图会发送给腾讯云（媒体处理 MPS）处理</li>
+          <li>计算合身判断：身高、体重、三围只在你自己的浏览器里计算，不上传服务器</li>
           <li>不用于广告、用户画像或任何其他目的</li>
         </ul>
       </section>
@@ -31,9 +32,9 @@ export default function PrivacyPage() {
       <section className="rounded-2xl bg-card p-4 ring-1 ring-line">
         <h2 className="text-base font-semibold">数据存多久</h2>
         <p className="mt-2 text-sm leading-6 text-muted">
-          用完即删。M1 阶段数据仅保存在你自己的浏览器本地，不上传任何服务器；再次试穿会被覆盖，也可随时清除浏览器数据。
-          接入真实试穿服务（M2）后，图片会发送给第三方服务商用于生成效果图，处理完成后立即删除、不落盘存储，
-          届时我们会在此页面补充服务商名称。
+          用完即删。生成效果图时，图片会发送给腾讯云（媒体处理 MPS）；中转图片存放在腾讯云 COS
+          私有存储桶（仅签名链接可访问），效果图生成后立即删除、不落盘存储。生成的效果图链接约 1
+          小时后自动过期。身体数据只留在你自己的浏览器里，再次试穿会被覆盖，也可随时清除浏览器数据。
         </p>
       </section>
 

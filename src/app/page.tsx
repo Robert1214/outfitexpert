@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Germania_One } from "next/font/google";
+import { Bodoni_Moda } from "next/font/google";
 import Field from "@/components/Field";
 import GarmentSlot from "@/components/GarmentSlot";
 import HintTip from "@/components/HintTip";
@@ -22,8 +22,8 @@ import {
 } from "@/lib/types";
 import { validateBody, validateGarment, type FieldError } from "@/lib/validation";
 
-/** 品牌字标：Germania One（单字重 400 的展示字体；构建时自托管，运行时不依赖外网） */
-const brandFont = Germania_One({ subsets: ["latin"], weight: "400", display: "swap" });
+/** 品牌字标：Bodoni Moda（Didone 时装风格；Bauer Bodoni 是商业字体，用这款最接近的免费替代；构建时自托管） */
+const brandFont = Bodoni_Moda({ subsets: ["latin"], weight: ["700"], display: "swap" });
 
 const emptyImages = () => Array<string | null>(MAX_GARMENTS).fill(null);
 const emptyFiles = () => Array<File | null>(MAX_GARMENTS).fill(null);
@@ -160,11 +160,11 @@ export default function HomePage() {
       <header className="flex flex-col gap-5 border-b border-line pb-6 lg:flex-row lg:items-end lg:justify-between lg:pb-8">
         <div>
           <p
-            className={`${brandFont.className} text-3xl uppercase leading-none tracking-[0.12em] text-accent lg:text-4xl`}
+            className={`${brandFont.className} text-4xl font-bold uppercase leading-none tracking-[0.12em] text-accent lg:text-5xl`}
           >
             Outfit Expert
           </p>
-          <p className="mt-2 text-sm text-muted lg:text-base">下单前，先看看自己穿上的美貌</p>
+          <p className="mt-4 text-sm text-muted lg:mt-5 lg:text-base">下单前，先看看自己穿上的美貌</p>
         </div>
         <div className="flex flex-col gap-1 text-xs leading-5 text-muted lg:items-end lg:text-right">
           <p>人像 + 最多 4 件单品，约 60 秒出效果图</p>

@@ -10,8 +10,8 @@ const MpsClient = mps.v20190612.Client;
 
 /** 换装模型（PRD 已定）：tryon-1.0-flash 均衡档，兼顾效果与时延 */
 const TRYON_MODEL = "tryon-1.0-flash";
-/** 输出分辨率：1K 够手机查看，成本最低；需要更高清可改 2K/4K */
-const OUTPUT_RESOLUTION = "1K";
+/** 输出分辨率：2K 更清晰（2026-10-30 第二步验证：输入高清已改善人脸，再试输出 2K） */
+const OUTPUT_RESOLUTION = "2K";
 /** 换装指令：把模特原服装替换为参考服饰 */
 const TRYON_PROMPT = "将[图片1]中模特的服装替换为[图片2]中的服装，保持人物形象与姿态自然";
 

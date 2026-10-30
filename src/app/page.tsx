@@ -7,7 +7,7 @@ import Field from "@/components/Field";
 import SectionCard from "@/components/SectionCard";
 import UploadBox from "@/components/UploadBox";
 import { setPendingTryon } from "@/lib/pending-tryon";
-import { fileToDataUrl, savePayload } from "@/lib/storage";
+import { fileToRawDataUrl, savePayload } from "@/lib/storage";
 import type { FitStyle, GarmentSize, PersonBody, TryonPayload } from "@/lib/types";
 import { validateBody, validateGarment, validateRequiredBody, type FieldError } from "@/lib/validation";
 
@@ -15,7 +15,7 @@ export default function HomePage() {
   const router = useRouter();
   const [personImage, setPersonImage] = useState<string | null>(null);
   const [garmentImage, setGarmentImage] = useState<string | null>(null);
-  // 原始文件：提交时生成高清版（最长边 2048）传给后端，localStorage 仍存压缩版
+  // 原始文件：提交时原图直传后端（不压缩），localStorage 仍存压缩版
   const [personFile, setPersonFile] = useState<File | null>(null);
   const [garmentFile, setGarmentFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -101,14 +101,14 @@ export default function HomePage() {
       garment: garmentData,
     };
 
-    // 高清版（最长边 2048、q0.92）只走内存传给后端；localStorage 仍存压缩版
+    // 上传后端传原图（不压缩不重编码），只走内存；localStorage 仍存压缩版
     const pImg = personImage;
     const gImg = garmentImage;
     setSubmitting(true);
     try {
       const [personHi, garmentHi] = await Promise.all([
-        personFile ? fileToDataUrl(personFile, { maxDim: 2048, quality: 0.92 }) : pImg,
-        garmentFile ? fileToDataUrl(garmentFile, { maxDim: 2048, quality: 0.92 }) : gImg,
+        personFile ? fileToRawDataUrl(personFile) : pImg,
+        garmentFile ? fileToRawDataUrl(garmentFile) : gImg,
       ]);
       setPendingTryon({ personImage: personHi, garmentImage: garmentHi });
       savePayload(payload);

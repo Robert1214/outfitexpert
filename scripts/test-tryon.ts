@@ -10,31 +10,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { runTryon } from "../src/lib/tryon/run";
 import { TryonError } from "../src/lib/tryon/errors";
-
-/** 读 PNG/JPEG 文件头的像素尺寸（PNG IHDR / JPEG SOF），失败返回 null */
-function dimsOf(buf: Buffer): { width: number; height: number } | null {
-  try {
-    if (buf.length > 24 && buf.readUInt32BE(0) === 0x89504e47) {
-      // PNG：宽高在 IHDR（16~23 字节）
-      return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
-    }
-    if (buf.length > 4 && buf[0] === 0xff && buf[1] === 0xd8) {
-      // JPEG：扫段标记找 SOF0~SOF15（排除 DHT/C0C4、JPG/C0C8、DAC/C0CC）
-      let i = 2;
-      while (i + 9 < buf.length) {
-        if (buf[i] !== 0xff) return null;
-        const marker = buf[i + 1];
-        if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
-          return { width: buf.readUInt16BE(i + 7), height: buf.readUInt16BE(i + 5) };
-        }
-        i += 2 + buf.readUInt16BE(i + 2);
-      }
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
+import { dimsOf } from "../src/lib/tryon/image";
 
 async function main() {
   const dir = join(process.cwd(), "test-assets");

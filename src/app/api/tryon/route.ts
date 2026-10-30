@@ -11,8 +11,8 @@ import { httpStatus, TryonError, USER_MESSAGES } from "@/lib/tryon/errors";
 // 长任务：MPS 换装要轮询几十秒（Vercel Pro 上限 300 秒）
 export const maxDuration = 120;
 
-/** 解码后单图上限 6MB（前端已压缩，这里兜底） */
-const MAX_IMAGE_BYTES = 6 * 1024 * 1024;
+/** 解码后单图上限 8MB（上传路径传原图不压缩，与前端选图 8MB 上限一致） */
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 
 export async function POST(req: NextRequest) {
   // 1. 每日次数上限（按 IP，10 次/天）

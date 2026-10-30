@@ -6,7 +6,7 @@ import { getTryonConfig } from "./config";
 import { startTryonTask, waitForTryonTask, type TryonTaskOpts } from "./mps";
 import { deleteImageTemp, toTryonError, uploadImageTemp } from "./cos";
 import { TryonError } from "./errors";
-import type { ImagePayload } from "./image";
+import { dimsOf, type ImagePayload } from "./image";
 
 export interface RunTryonResult {
   imageUrl: string;
@@ -26,6 +26,15 @@ export async function runTryon(
   const keys: string[] = [];
   const cleanup = () =>
     Promise.allSettled(keys.map((k) => deleteImageTemp(cfg, k)));
+
+  // 验证日志：实际传给 MPS 的图片像素尺寸（原图链路，后端不压缩）
+  const pd = dimsOf(person.buffer);
+  const gd = dimsOf(garment.buffer);
+  const kb = (b: Buffer) => (b.length / 1024).toFixed(0);
+  console.log(
+    `[tryon] 传给 MPS：人像 ${pd ? `${pd.width}x${pd.height}` : "?"}（${person.contentType}，${kb(person.buffer)}KB），` +
+      `衣服 ${gd ? `${gd.width}x${gd.height}` : "?"}（${garment.contentType}，${kb(garment.buffer)}KB）`
+  );
 
   let personUrl: string;
   let garmentUrl: string;

@@ -17,8 +17,8 @@ export interface ImageEncodeOptions {
 
 /**
  * 把图片压缩成 data URL。
- * 两条路各取所需：localStorage 回显用默认 900px 压缩版；上传给后端另调
- * { maxDim: 2048, quality: 0.92 } 拿高清版（仅走内存，见 pending-tryon.ts）。
+ * 两条路各取所需：localStorage 回显用默认 900px 压缩版；上传给后端
+ * 不经过本函数，直接传原图（fileToRawDataUrl，见 pending-tryon.ts）。
  */
 export function fileToDataUrl(file: File, opts: ImageEncodeOptions = {}): Promise<string> {
   const maxDim = opts.maxDim ?? 900;
@@ -47,6 +47,19 @@ export function fileToDataUrl(file: File, opts: ImageEncodeOptions = {}): Promis
       reject(new Error("图片读取失败，请换一张试试"));
     };
     img.src = url;
+  });
+}
+
+/**
+ * 原图转 data URL（不压缩、不重编码，只是 base64）：上传后端专用。
+ * 走内存通道（见 pending-tryon.ts），不落 localStorage。
+ */
+export function fileToRawDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error("图片读取失败，请换一张试试"));
+    reader.readAsDataURL(file);
   });
 }
 

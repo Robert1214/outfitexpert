@@ -23,9 +23,14 @@ export async function GET(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: "url 不合法" }, { status: 400 });
   }
-  if (target.protocol !== "https:" || !COS_HOST_RE.test(target.hostname)) {
+  if (
+    (target.protocol !== "https:" && target.protocol !== "http:") ||
+    !COS_HOST_RE.test(target.hostname)
+  ) {
     return NextResponse.json({ error: "只允许下载腾讯云 COS 图片" }, { status: 400 });
   }
+  // MPS 历史/缓存链接可能是 http；COS 支持 https，统一升级后再取图
+  target.protocol = "https:";
 
   let upstream: Response;
   try {

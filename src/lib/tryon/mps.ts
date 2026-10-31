@@ -162,9 +162,11 @@ export async function waitForTryonTask(
       // 注意：FINISH 不等于成功，ErrMsg 非空说明任务实际失败
       const errMsg = res.ErrMsg?.trim();
       if (errMsg) throw new TryonError("task-failed", `MPS 任务失败：${errMsg}`);
-      const imageUrl = res.ImageProcessTaskResultSet?.[0]?.Output?.SignedUrl;
-      if (!imageUrl) throw new TryonError("task-failed", "任务完成但未返回效果图");
-      return { imageUrl };
+      const rawUrl = res.ImageProcessTaskResultSet?.[0]?.Output?.SignedUrl;
+      if (!rawUrl) throw new TryonError("task-failed", "任务完成但未返回效果图");
+      // MPS 下发的签名链接是 http；COS 支持 https，统一升级，
+      // 避免 https 页面出现混合内容、下载代理也统一按 https 取图
+      return { imageUrl: rawUrl.replace(/^http:\/\//i, "https://") };
     }
 
     if (Date.now() >= deadline) {

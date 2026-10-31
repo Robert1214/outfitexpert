@@ -220,7 +220,10 @@ export default function ResultPage() {
     setSaveError(null);
     try {
       const res = await fetch(`/api/download?url=${encodeURIComponent(resultImage)}`);
-      if (!res.ok) throw new Error("download failed");
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(data?.error || "下载失败");
+      }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -231,8 +234,14 @@ export default function ResultPage() {
       a.remove();
       // 延迟释放，避免个别浏览器还没开始下载就失效
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } catch {
-      setSaveError("保存失败：图片链接可能已过期，请重新生成后再试");
+    } catch (e) {
+      console.error("[save] 保存失败:", e);
+      const detail = e instanceof Error ? e.message : "";
+      setSaveError(
+        detail.includes("过期")
+          ? "保存失败：图片链接已过期，请重新生成后再试"
+          : `保存失败：${detail || "请稍后重试"}`
+      );
     } finally {
       setSaving(false);
     }

@@ -7,7 +7,6 @@ import { runTryon } from "@/lib/tryon/run";
 import { dataUrlToBuffer, type ImagePayload } from "@/lib/tryon/image";
 import { buildTryonPrompt } from "@/lib/tryon/mps";
 import { GARMENT_REF_TYPES, MAX_GARMENTS, type GarmentRefType } from "@/lib/types";
-import { consumeDailyQuota } from "@/lib/tryon/rate-limit";
 import { httpStatus, TryonError, USER_MESSAGES } from "@/lib/tryon/errors";
 
 // 长任务：MPS 换装要轮询几十秒（Vercel Pro 上限 300 秒）
@@ -17,14 +16,7 @@ export const maxDuration = 120;
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 
 export async function POST(req: NextRequest) {
-  // 1. 每日次数上限（按 IP，10 次/天）
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
-  const quota = consumeDailyQuota(ip);
-  if (!quota.allowed) {
-    return NextResponse.json({ error: USER_MESSAGES["rate-limit"] }, { status: 429 });
-  }
-
-  // 2. 解析请求体：人像 1 张，单品 1~4 张（可带每张的类型）
+  // 1. 解析请求体：人像 1 张，单品 1~4 张（可带每张的类型）
   let body: { personImage?: unknown; garmentImages?: unknown; garmentTypes?: unknown };
   try {
     body = await req.json();
@@ -70,7 +62,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: USER_MESSAGES["bad-input"] }, { status: 400 });
   }
 
-  // 3. 执行换装（上传中转 → 发起任务 → 轮询 → 清理）
+  // 2. 执行换装（上传中转 → 发起任务 → 轮询 → 清理）
   const refs = garmentPayloads.map((image, i) => ({ type: garmentTypes[i], image }));
   try {
     const { imageUrl } = await runTryon(person, refs, {

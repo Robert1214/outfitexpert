@@ -46,6 +46,8 @@ export default function ResultPage() {
   const [elapsed, setElapsed] = useState(0);
   // 悬停看原图（桌面）/ 点按切换（手机）
   const [showOriginal, setShowOriginal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   // 并发保护：同一时间只允许一个请求写 state；新请求会先中止旧请求
   const requestIdRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
@@ -63,6 +65,7 @@ export default function ResultPage() {
     setErrorMsg(null);
     setElapsed(0);
     setShowOriginal(false);
+    setSaveError(null);
 
     // 记录进行中的请求：刷新页面时据此提示，不自动重复扣费
     const signature = payloadSignature(p);
@@ -208,6 +211,31 @@ export default function ResultPage() {
     setResultImage(null);
     setErrorMsg("结果已过期，请重新生成");
     setStage("error");
+  }
+
+  /** 保存结果图：经服务端代理下载，避免 COS 跨域导致浏览器无法直接保存 */
+  async function saveImage() {
+    if (!resultImage || saving) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const res = await fetch(`/api/download?url=${encodeURIComponent(resultImage)}`);
+      if (!res.ok) throw new Error("download failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `outfitexpert-${new Date().toISOString().slice(0, 10)}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      // 延迟释放，避免个别浏览器还没开始下载就失效
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch {
+      setSaveError("保存失败：图片链接可能已过期，请重新生成后再试");
+    } finally {
+      setSaving(false);
+    }
   }
 
   if (stage === "loading") {
@@ -372,10 +400,25 @@ export default function ResultPage() {
               </span>
             )}
           </button>
-          <div className="flex flex-col gap-1 border-t border-line px-4 py-3 text-xs leading-5 text-muted sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-2 border-t border-line px-4 py-3 text-xs leading-5 text-muted sm:flex-row sm:items-center sm:justify-between">
             <p>悬停 / 点按图片，查看原图对比</p>
-            <p>结果图链接约 1 小时内有效，请及时保存</p>
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              <p>结果图链接约 1 小时内有效，请及时保存</p>
+              <button
+                type="button"
+                onClick={saveImage}
+                disabled={saving || !resultImage}
+                className="shrink-0 rounded-full bg-accent px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-accent-deep disabled:opacity-60"
+              >
+                {saving ? "保存中…" : "保存图片"}
+              </button>
+            </div>
           </div>
+          {saveError && (
+            <p role="alert" className="border-t border-line px-4 py-2 text-xs leading-5 text-danger">
+              {saveError}
+            </p>
+          )}
           <p className="border-t border-line px-4 py-3 text-xs leading-5 text-muted">
             效果图仅示意颜色、版型、气质和大致长度（人像为半身 / 大头照时，效果图可能只呈现上半身）；精确合身度请以合身判断为准。
           </p>

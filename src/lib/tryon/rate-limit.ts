@@ -1,6 +1,9 @@
 /**
  * 调用次数上限：每人每天 10 次（PRD M2，服务端专用）。
  * 目前无登录体系，按来源 IP 计数；进程内存存储，服务重启会清零（本地演示可接受，M3 换持久化）。
+ *
+ * 当前状态（2026-10-31）：用户要求先取消每日限制，/api/tryon 已不再调用本模块。
+ * 如需恢复，在 src/app/api/tryon/route.ts 里重新调用 consumeDailyQuota。
  */
 
 export const DAILY_LIMIT = 10;

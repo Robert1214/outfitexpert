@@ -9,6 +9,9 @@ import type { GarmentRefType } from "../src/lib/types";
 const FACE_CLAUSE =
   "严格保持[图片1]中人物的五官、脸型、肤色、发型完全不变，不要重新生成面部；保持姿态、背景、光照不变。";
 
+const FULL_REPLACE =
+  "每件都要完整替换所有部位（如肩部、袖子、袖口、领口、门襟、下摆等），不要保留原服装的任何部分，不要把两件衣服拼接在一起";
+
 function check(
   name: string,
   types: GarmentRefType[],
@@ -28,7 +31,12 @@ function check(
 }
 
 // 1 衣服：[图片2] 是衣服
-check("1 衣服", ["garment"], ["将[图片1]中模特的服装替换为[图片2]中的服装单品"], ["佩戴", "鞋替换"]);
+check(
+  "1 衣服",
+  ["garment"],
+  ["将[图片1]中模特的服装替换为[图片2]中的服装单品", FULL_REPLACE],
+  ["佩戴", "鞋替换"]
+);
 
 // 1 配饰（眼镜）：必须用「佩戴」，且不能复制参考图里的人脸/手/背景
 check(
@@ -51,6 +59,7 @@ const mixed = check(
   ["garment", "garment", "garment", "accessories"],
   [
     "[图片2]、[图片3]、[图片4]中的服装单品",
+    FULL_REPLACE,
     "让模特佩戴[图片5]中的配饰",
     "不要复制参考图中的人物、脸、手、背景",
   ]
@@ -64,7 +73,7 @@ assert.ok(
 check(
   "4 衣服",
   ["garment", "garment", "garment", "garment"],
-  ["[图片2]、[图片3]、[图片4]、[图片5]中的服装单品"],
+  ["[图片2]、[图片3]、[图片4]、[图片5]中的服装单品", FULL_REPLACE],
   ["佩戴", "鞋替换"]
 );
 

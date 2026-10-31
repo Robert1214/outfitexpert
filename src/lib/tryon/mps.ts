@@ -40,7 +40,9 @@ export function buildTryonPrompt(types: GarmentRefType[]): string {
   const parts: string[] = [];
   if (indices.garment.length > 0) {
     parts.push(
-      `将[图片1]中模特的服装替换为${refList(indices.garment)}中的服装单品，保持款式/颜色/版型一致`
+      `将[图片1]中模特的服装替换为${refList(indices.garment)}中的服装单品，保持款式/颜色/版型一致；` +
+        `每件都要完整替换所有部位（如肩部、袖子、袖口、领口、门襟、下摆等），` +
+        `不要保留原服装的任何部分，不要把两件衣服拼接在一起`
     );
   }
   if (indices.accessories.length > 0) {
